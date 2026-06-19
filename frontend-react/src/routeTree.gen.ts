@@ -11,7 +11,6 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as McpRouteImport } from './routes/mcp'
 import { Route as DashboardRouteImport } from './routes/dashboard'
-import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CoursesSlugRouteImport } from './routes/courses.$slug'
@@ -25,11 +24,6 @@ const McpRoute = McpRouteImport.update({
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthRoute = AuthRouteImport.update({
-  id: '/auth',
-  path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -57,7 +51,6 @@ const CoursesSlugLessonsLessonIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
-  '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
   '/mcp': typeof McpRoute
   '/courses/$slug': typeof CoursesSlugRouteWithChildren
@@ -66,7 +59,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
-  '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
   '/mcp': typeof McpRoute
   '/courses/$slug': typeof CoursesSlugRouteWithChildren
@@ -76,7 +68,6 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
-  '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
   '/mcp': typeof McpRoute
   '/courses/$slug': typeof CoursesSlugRouteWithChildren
@@ -87,7 +78,6 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/admin'
-    | '/auth'
     | '/dashboard'
     | '/mcp'
     | '/courses/$slug'
@@ -96,7 +86,6 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/admin'
-    | '/auth'
     | '/dashboard'
     | '/mcp'
     | '/courses/$slug'
@@ -105,7 +94,6 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/admin'
-    | '/auth'
     | '/dashboard'
     | '/mcp'
     | '/courses/$slug'
@@ -115,7 +103,6 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
-  AuthRoute: typeof AuthRoute
   DashboardRoute: typeof DashboardRoute
   McpRoute: typeof McpRoute
   CoursesSlugRoute: typeof CoursesSlugRouteWithChildren
@@ -135,13 +122,6 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof DashboardRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -190,7 +170,6 @@ const CoursesSlugRouteWithChildren = CoursesSlugRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
-  AuthRoute: AuthRoute,
   DashboardRoute: DashboardRoute,
   McpRoute: McpRoute,
   CoursesSlugRoute: CoursesSlugRouteWithChildren,

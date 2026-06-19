@@ -1,10 +1,11 @@
 import { useGSAP } from "@gsap/react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import gsap from "gsap";
 import { DrawSVGPlugin } from "gsap/DrawSVGPlugin";
 import { SplitText } from "gsap/SplitText";
 import { ArrowRight, CheckCircle2, Loader2, LockKeyhole } from "lucide-react";
 import { type FormEvent, useRef, useState } from "react";
+import { SignInDialog } from "#/components/sign-in-dialog.tsx";
 import GlowingTag from "#/components/storybook/GlowingTag";
 import TagMarquee from "#/components/storybook/TagMarquee";
 import {
@@ -17,6 +18,11 @@ import {
 } from "#/components/ui/dialog.tsx";
 import { Input } from "#/components/ui/input.tsx";
 import { requestBetaAccess } from "#/lib/backend-api.ts";
+import {
+	formatBrazilianWhatsapp,
+	isValidBrazilianWhatsapp,
+	WHATSAPP_ERROR_MESSAGE,
+} from "#/lib/brazilian-whatsapp.ts";
 import { cn } from "#/utils/cn";
 
 export const Route = createFileRoute("/")({ component: Home });
@@ -36,58 +42,6 @@ const courseSignals = [
 	"Software Architecture",
 	"AI recursion",
 ];
-
-const WHATSAPP_ERROR_MESSAGE = "Use the format +55 (DD) 9XXXX-XXXX.";
-const BRAZILIAN_WHATSAPP_PATTERN = /^\+55 \(\d{2}\) 9\d{4}-\d{4}$/;
-
-function normalizeBrazilianWhatsappDigits(value: string) {
-	const digits = value.replace(/\D/g, "");
-	const nationalDigits =
-		digits.startsWith("55") && digits.length > 11 ? digits.slice(2) : digits;
-
-	return nationalDigits.slice(0, 11);
-}
-
-function formatBrazilianWhatsapp(value: string) {
-	const digits = normalizeBrazilianWhatsappDigits(value);
-
-	if (!digits) {
-		return "";
-	}
-
-	const areaCode = digits.slice(0, 2);
-	const firstDigit = digits.slice(2, 3);
-	const firstBlock = digits.slice(3, 7);
-	const secondBlock = digits.slice(7, 11);
-
-	let formatted = "+55";
-
-	if (areaCode.length > 0) {
-		formatted += ` (${areaCode}`;
-	}
-
-	if (areaCode.length === 2) {
-		formatted += ")";
-	}
-
-	if (firstDigit.length > 0) {
-		formatted += ` ${firstDigit}`;
-	}
-
-	if (firstBlock.length > 0) {
-		formatted += firstBlock;
-	}
-
-	if (secondBlock.length > 0) {
-		formatted += `-${secondBlock}`;
-	}
-
-	return formatted;
-}
-
-function isValidBrazilianWhatsapp(value: string) {
-	return BRAZILIAN_WHATSAPP_PATTERN.test(value);
-}
 
 function Home() {
 	const [email, setEmail] = useState("");
@@ -335,13 +289,17 @@ function Home() {
 							/>
 						</Dialog>
 
-						<Link
-							to="/auth"
-							className="button inline-flex items-center gap-2 px-3 py-3 text-sm tracking-tight text-[#cccccc] no-underline hover:text-white"
-						>
-							Already invited? Sign in
-							<ArrowRight aria-hidden="true" className="size-3" />
-						</Link>
+						<SignInDialog
+							trigger={
+								<button
+									type="button"
+									className="button inline-flex items-center gap-2 px-3 py-3 text-sm tracking-tight text-[#cccccc] no-underline hover:text-white"
+								>
+									Already invited? Sign in
+									<ArrowRight aria-hidden="true" className="size-3" />
+								</button>
+							}
+						/>
 					</div>
 				</div>
 
@@ -453,7 +411,7 @@ function BetaAccessDialog({
 					</div>
 
 					<div className="grid gap-2 sm:grid-cols-2">
-						<div className="grid gap-2">
+						<div className="flex flex-col items-start gap-2">
 							<label
 								className="text-center text-xs font-semibold uppercase tracking-[0.18em] text-[#999] sm:text-left"
 								htmlFor="beta-name"
@@ -470,7 +428,7 @@ function BetaAccessDialog({
 								autoComplete="given-name"
 							/>
 						</div>
-						<div className="grid gap-2">
+						<div className="flex flex-col gap-2">
 							<label
 								className="text-center text-xs font-semibold uppercase tracking-[0.18em] text-[#999] sm:text-left"
 								htmlFor="beta-whatsapp"
