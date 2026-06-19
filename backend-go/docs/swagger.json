@@ -1,0 +1,554 @@
+{
+    "schemes": [
+        "http",
+        "https"
+    ],
+    "swagger": "2.0",
+    "info": {
+        "description": "Production-ready Go backend with chi, PostgreSQL, Redis, OpenTelemetry, WebSockets, Swaggo, and Scalar.",
+        "title": "Go Backend Server",
+        "contact": {},
+        "version": "1.0"
+    },
+    "basePath": "/",
+    "paths": {
+        "/api/v1/beta-access-requests": {
+            "post": {
+                "description": "Accepts a public beta-access request for the Agentic Engineering Course. This records interest only and does not grant private course access.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "access"
+                ],
+                "summary": "Request beta access",
+                "parameters": [
+                    {
+                        "description": "Beta access request",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.BetaAccessRequestBody"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.BetaAccessRequestResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/backend-go_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/backend-go_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/courses": {
+            "get": {
+                "description": "Lists cacheable course catalog data.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "courses"
+                ],
+                "summary": "List courses",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/backend-go_internal_service.Course"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/courses/{slug}": {
+            "get": {
+                "description": "Gets cacheable course detail data by slug.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "courses"
+                ],
+                "summary": "Get course",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Course slug",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/backend-go_internal_service.Course"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/backend-go_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/courses/{slug}/progress": {
+            "get": {
+                "description": "Gets per-user course progress. Development placeholder uses seeded progress.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "progress"
+                ],
+                "summary": "Get course progress",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Course slug",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/backend-go_internal_service.CourseProgress"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/backend-go_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/lessons/{lessonID}/progress": {
+            "post": {
+                "description": "Idempotently updates lesson progress for the authenticated user. Development placeholder echoes the normalized status.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "progress"
+                ],
+                "summary": "Update lesson progress",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Lesson ID",
+                        "name": "lessonID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Progress payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/backend-go_internal_service.LessonProgressUpdate"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/backend-go_internal_service.LessonProgressUpdate"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/backend-go_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/me/access": {
+            "get": {
+                "description": "Returns session/beta access state for the current user. This is a development placeholder until Better Auth session validation is wired.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "access"
+                ],
+                "summary": "Get current access state",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.AccessResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/users": {
+            "get": {
+                "description": "Lists users.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "List users",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/internal_handler.UserResponse"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Creates a user.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Create user",
+                "parameters": [
+                    {
+                        "description": "User payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.CreateUserRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.UserResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/backend-go_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/users/{id}": {
+            "get": {
+                "description": "Gets a user by UUID.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Get user",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.UserResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/backend-go_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/health": {
+            "get": {
+                "description": "Returns service health.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "ops"
+                ],
+                "summary": "Health check",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.HealthResponse"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "backend-go_internal_service.Course": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "modules": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/backend-go_internal_service.Module"
+                    }
+                },
+                "progress": {
+                    "type": "integer"
+                },
+                "slug": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/backend-go_internal_service.CourseStatus"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "backend-go_internal_service.CourseProgress": {
+            "type": "object",
+            "properties": {
+                "completed_lessons": {
+                    "type": "integer"
+                },
+                "course_slug": {
+                    "type": "string"
+                },
+                "percent": {
+                    "type": "integer"
+                },
+                "total_lessons": {
+                    "type": "integer"
+                }
+            }
+        },
+        "backend-go_internal_service.CourseStatus": {
+            "type": "string",
+            "enum": [
+                "draft",
+                "beta",
+                "published"
+            ],
+            "x-enum-varnames": [
+                "CourseStatusDraft",
+                "CourseStatusBeta",
+                "CourseStatusPublished"
+            ]
+        },
+        "backend-go_internal_service.Lesson": {
+            "type": "object",
+            "properties": {
+                "duration_seconds": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/backend-go_internal_service.LessonStatus"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "youtube_embed_url": {
+                    "type": "string"
+                }
+            }
+        },
+        "backend-go_internal_service.LessonProgressUpdate": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "$ref": "#/definitions/backend-go_internal_service.LessonStatus"
+                }
+            }
+        },
+        "backend-go_internal_service.LessonStatus": {
+            "type": "string",
+            "enum": [
+                "not_started",
+                "in_progress",
+                "completed"
+            ],
+            "x-enum-varnames": [
+                "LessonStatusNotStarted",
+                "LessonStatusInProgress",
+                "LessonStatusCompleted"
+            ]
+        },
+        "backend-go_internal_service.Module": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "lessons": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/backend-go_internal_service.Lesson"
+                    }
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "backend-go_pkg_response.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_handler.AccessResponse": {
+            "type": "object",
+            "properties": {
+                "authenticated": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "beta_access": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "status": {
+                    "type": "string",
+                    "example": "active"
+                }
+            }
+        },
+        "internal_handler.BetaAccessRequestBody": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "student@example.com"
+                }
+            }
+        },
+        "internal_handler.BetaAccessRequestResponse": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "student@example.com"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Beta access request received."
+                },
+                "status": {
+                    "type": "string",
+                    "example": "requested"
+                }
+            }
+        },
+        "internal_handler.CreateUserRequest": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "user@example.com"
+                }
+            }
+        },
+        "internal_handler.HealthResponse": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "example": "ok"
+                }
+            }
+        },
+        "internal_handler.UserResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                }
+            }
+        }
+    }
+}
