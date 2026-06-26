@@ -5,7 +5,7 @@ import {
 	RiLoader4Line,
 	RiLock2Line,
 } from "@remixicon/react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import gsap from "gsap";
 import { DrawSVGPlugin } from "gsap/DrawSVGPlugin";
 import { SplitText } from "gsap/SplitText";
@@ -23,6 +23,7 @@ import {
 	DialogTrigger,
 } from "#/components/ui/dialog.tsx";
 import { Input } from "#/components/ui/input.tsx";
+import { getServerAuthState } from "#/lib/auth-session.ts";
 import { requestBetaAccess } from "#/lib/backend-api.ts";
 import {
 	formatBrazilianWhatsapp,
@@ -31,7 +32,16 @@ import {
 } from "#/lib/brazilian-whatsapp.ts";
 import { cn } from "#/utils/cn";
 
-export const Route = createFileRoute("/")({ component: Home });
+export const Route = createFileRoute("/")({
+	beforeLoad: async () => {
+		const auth = await getServerAuthState();
+
+		if (auth.isAuthenticated) {
+			throw redirect({ to: "/dashboard" });
+		}
+	},
+	component: Home,
+});
 
 gsap.registerPlugin(useGSAP, SplitText, DrawSVGPlugin);
 

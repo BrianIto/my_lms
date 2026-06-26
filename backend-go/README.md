@@ -42,6 +42,10 @@ make docs
 make sqlc
 ```
 
+## Backend testing rule
+
+Automated backend tests should use SQLite when a lightweight database is needed. Manual database checks run by agents or shell commands should use PostgreSQL through `psql` against the local Postgres container, so ad-hoc verification matches the development database dialect.
+
 Regenerate `docs/` whenever handlers or DTOs change:
 
 ```bash

@@ -20,10 +20,11 @@ interface Props {
 	onClose: () => void;
 	isOpen: boolean;
 	isSelected: boolean;
+	isRouteActive: boolean;
 }
 
 const itemClassName =
-	"flex w-full items-center gap-3 rounded-md px-2 py-1.5 text-left text-sm transition-colors first:mt-1 last-of-type:mb-0.75 last-of-type:rounded-b-xl focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40";
+	"flex w-full items-center gap-3 rounded-md px-2 py-1.5 text-left text-sm transition-colors first:mt-1 last-of-type:mb-0.75  focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40";
 
 const ListItem: React.FC<Props> = ({
 	page,
@@ -32,6 +33,7 @@ const ListItem: React.FC<Props> = ({
 	onClose,
 	isOpen,
 	isSelected,
+	isRouteActive,
 }) => {
 	const Icon = page.icon;
 
@@ -57,9 +59,11 @@ const ListItem: React.FC<Props> = ({
 						aria-expanded={isOpen}
 						className={cn(
 							itemClassName,
-							"rounded-b-none border-b border-white/10",
+							"rounded-b-none border-b border-white/10 hover:bg-[#1A1A1A]",
 							{
-								"bg-[#1A1A1A] text-white": isSelected,
+								" bg-white/[0.06] text-white shadow-[inset_0_0_18px_rgba(255,186,90,0.06)]":
+									isRouteActive,
+								"text-white": isSelected && isRouteActive,
 							},
 						)}
 					>
@@ -79,8 +83,12 @@ const ListItem: React.FC<Props> = ({
 							event.stopPropagation();
 							onClose();
 						}}
+						aria-current={isRouteActive ? "page" : undefined}
 						className={cn(itemClassName, "no-underline hover:bg-[#1A1A1A]", {
-							"bg-[#1A1A1A] text-white": isSelected,
+							" text-white bg-white/[0.06] text-white shadow-[inset_0_0_18px_rgba(255,186,90,0.06)]":
+								isRouteActive,
+							"": isSelected && !isRouteActive,
+							"text-white": isSelected && isRouteActive,
 						})}
 					>
 						{Icon ? <Icon aria-hidden="true" className="size-4" /> : null}
@@ -117,7 +125,14 @@ const ListItem: React.FC<Props> = ({
 											event.stopPropagation();
 											onClose();
 										}}
-										className="flex w-full items-center gap-3 rounded-b-md rounded-t-md px-8 py-1.5 text-left text-sm text-[#AAA] no-underline hover:bg-[#1A1A1A] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40 first:mt-1 last-of-type:mb-0.75"
+										aria-current={isRouteActive ? "page" : undefined}
+										className={cn(
+											"flex w-full items-center gap-3 rounded-b-md rounded-t-md px-8 py-1.5 text-left text-sm text-[#AAA] no-underline hover:bg-[#1A1A1A] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40 first:mt-1 last-of-type:mb-0.75",
+											{
+												"shadow-[inset_0_0_18px_rgba(255,186,90,0.06)]":
+													isRouteActive,
+											},
+										)}
 									>
 										{item.name}
 									</Link>

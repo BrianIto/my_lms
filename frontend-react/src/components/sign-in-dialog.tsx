@@ -1,4 +1,5 @@
 import { RiGoogleLine, RiLoader4Line, RiMailLine } from "@remixicon/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { type FormEvent, type ReactNode, useState } from "react";
 import {
 	Dialog,
@@ -11,7 +12,10 @@ import {
 import { Input } from "#/components/ui/input.tsx";
 import { Separator } from "#/components/ui/separator.tsx";
 import { authClient } from "#/lib/auth-client.ts";
+import { preflightEmailFirstSignin } from "#/lib/backend-api.ts";
 import { cn } from "#/utils/cn";
+
+type EmailStep = "email" | "password" | "create-password";
 
 type SignInStatus =
 	| { state: "idle"; message: string }
@@ -21,11 +25,14 @@ type SignInStatus =
 export function SignInDialog({
 	trigger,
 	defaultOpen = false,
+	redirectToDashboard = (url) => window.location.assign(url),
 }: {
 	trigger?: ReactNode;
 	defaultOpen?: boolean;
+	redirectToDashboard?: (url: string) => void;
 }) {
 	const [open, setOpen] = useState(defaultOpen);
+	const [step, setStep] = useState<EmailStep>("email");
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [status, setStatus] = useState<SignInStatus>({
@@ -34,6 +41,8 @@ export function SignInDialog({
 	});
 
 	const isLoading = status.state === "loading";
+	const showPassword = step !== "email";
+	const prefersReducedMotion = useReducedMotion();
 
 	async function signInWithGoogle() {
 		setStatus({ state: "loading", message: "Opening Google sign-in…" });
@@ -41,7 +50,7 @@ export function SignInDialog({
 		try {
 			const result = await authClient.signIn.social({
 				provider: "google",
-				callbackURL: "/dashboard",
+				callbackURL: `${window.location.origin}/dashboard`,
 			});
 
 			if (result.error) {
@@ -61,28 +70,87 @@ export function SignInDialog({
 		}
 	}
 
-	async function signInWithEmail(event: FormEvent<HTMLFormElement>) {
+	function handleEmailChange(value: string) {
+		setEmail(value);
+		setPassword("");
+		setStep("email");
+		setStatus({ state: "idle", message: "" });
+	}
+
+	async function continueWithEmail(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
-		setStatus({ state: "loading", message: "Checking your beta identity…" });
+
+		if (step === "email") {
+			setStatus({ state: "loading", message: "Checking beta access…" });
+
+			try {
+				const preflight = await preflightEmailFirstSignin({ email });
+				setEmail(preflight.email);
+				setStep(
+					preflight.credential_state === "has_password"
+						? "password"
+						: "create-password",
+				);
+				setStatus({
+					state: "idle",
+					message: "",
+				});
+			} catch (error) {
+				setStatus({
+					state: "error",
+					message:
+						error instanceof Error
+							? error.message
+							: "This email is not active for beta access.",
+				});
+			}
+			return;
+		}
+
+		setStatus({
+			state: "loading",
+			message:
+				step === "password" ? "Signing you in…" : "Creating your password…",
+		});
 
 		try {
-			const result = await authClient.signIn.email({
-				email,
-				password,
-				callbackURL: "/dashboard",
-			});
+			const dashboardURL = `${window.location.origin}/dashboard`;
+			const result =
+				step === "password"
+					? await authClient.signIn.email({
+							email,
+							password,
+							callbackURL: dashboardURL,
+						})
+					: await authClient.signUp.email({
+							email,
+							password,
+							name: email.split("@")[0] ?? "Beta student",
+							callbackURL: dashboardURL,
+						});
 
 			if (result.error) {
 				setStatus({
 					state: "error",
-					message: result.error.message ?? "Email sign-in failed.",
+					message:
+						result.error.message ??
+						(step === "password"
+							? "Email sign-in failed."
+							: "Password setup failed."),
 				});
+				return;
 			}
+
+			redirectToDashboard(dashboardURL);
 		} catch (error) {
 			setStatus({
 				state: "error",
 				message:
-					error instanceof Error ? error.message : "Email sign-in failed.",
+					error instanceof Error
+						? error.message
+						: step === "password"
+							? "Email sign-in failed."
+							: "Password setup failed.",
 			});
 		}
 	}
@@ -159,7 +227,7 @@ export function SignInDialog({
 							<Separator className="flex-1" />
 						</div>
 
-						<form onSubmit={signInWithEmail} className="flex flex-col gap-4">
+						<form onSubmit={continueWithEmail} className="flex flex-col gap-4">
 							<div className="flex flex-col gap-2">
 								<label
 									className="text-center text-xs font-semibold uppercase tracking-[0.18em] text-[#999] sm:text-left"
@@ -173,32 +241,68 @@ export function SignInDialog({
 									required
 									placeholder="you@example.com"
 									value={email}
-									onChange={(event) => setEmail(event.target.value)}
+									onChange={(event) => handleEmailChange(event.target.value)}
 									className="h-12 rounded-full border-white/15 bg-background/80 px-5 text-center text-white placeholder:text-[#8c8c8c] focus-visible:border-amber/40 sm:text-left"
 									autoComplete="email"
 									aria-invalid={status.state === "error"}
 								/>
 							</div>
 
-							<div className="flex flex-col gap-2">
-								<label
-									className="text-center text-xs font-semibold uppercase tracking-[0.18em] text-[#999] sm:text-left"
-									htmlFor="sign-in-password"
-								>
-									Password
-								</label>
-								<Input
-									id="sign-in-password"
-									type="password"
-									required
-									placeholder="••••••••••••"
-									value={password}
-									onChange={(event) => setPassword(event.target.value)}
-									className="h-12 rounded-full border-white/15 bg-background/80 px-5 text-center text-white placeholder:text-[#8c8c8c] focus-visible:border-amber/40 sm:text-left"
-									autoComplete="current-password"
-									aria-invalid={status.state === "error"}
-								/>
-							</div>
+							<AnimatePresence initial={false} mode="wait">
+								{showPassword ? (
+									<motion.div
+										key={step}
+										initial={
+											prefersReducedMotion
+												? { height: 0, opacity: 0 }
+												: { height: 0, opacity: 0, y: -6 }
+										}
+										animate={
+											prefersReducedMotion
+												? { height: "auto", opacity: 1 }
+												: { height: "auto", opacity: 1, y: 0 }
+										}
+										exit={
+											prefersReducedMotion
+												? { height: 0, opacity: 0 }
+												: { height: 0, opacity: 0, y: -4 }
+										}
+										transition={{ duration: 0.2, ease: "easeOut" }}
+										className="overflow-hidden"
+									>
+										<div className="flex flex-col gap-2">
+											<label
+												className="text-center text-xs font-semibold uppercase tracking-[0.18em] text-[#999] sm:text-left"
+												htmlFor="sign-in-password"
+											>
+												{step === "password" ? "Password" : "Create password"}
+											</label>
+											<Input
+												id="sign-in-password"
+												type="password"
+												required
+												minLength={8}
+												placeholder="••••••••••••"
+												value={password}
+												onChange={(event) => setPassword(event.target.value)}
+												className="h-12 rounded-full border-white/15 bg-background/80 px-5 text-center text-white placeholder:text-[#8c8c8c] focus-visible:border-amber/40 sm:text-left"
+												autoComplete={
+													step === "password"
+														? "current-password"
+														: "new-password"
+												}
+												aria-invalid={status.state === "error"}
+											/>
+											{step === "create-password" ? (
+												<p className="text-center text-xs leading-5 text-white/45 sm:text-left">
+													This approved beta email does not have a password yet.
+													Create one to open your LMS session.
+												</p>
+											) : null}
+										</div>
+									</motion.div>
+								) : null}
+							</AnimatePresence>
 
 							<button
 								type="submit"
@@ -213,7 +317,11 @@ export function SignInDialog({
 								) : (
 									<RiMailLine aria-hidden="true" className="size-4" />
 								)}
-								Continue with email
+								{step === "email"
+									? "Continue with email"
+									: step === "password"
+										? "Sign in with password"
+										: "Create password and enter"}
 							</button>
 						</form>
 					</div>

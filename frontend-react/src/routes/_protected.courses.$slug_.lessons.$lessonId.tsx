@@ -19,7 +19,9 @@ import {
 import { Progress } from "#/components/ui/progress.tsx";
 import { formatDuration, getCourse, getLesson } from "#/lib/lms-data.ts";
 
-export const Route = createFileRoute("/courses/$slug/lessons/$lessonId")({
+export const Route = createFileRoute(
+	"/_protected/courses/$slug_/lessons/$lessonId",
+)({
 	component: LessonView,
 });
 

@@ -141,7 +141,7 @@ need go
 write_if_missing "$BACKEND_DIR/.env" "HTTP_ADDR=:8080
 SHUTDOWN_TIMEOUT=10s
 ENV=development
-DATABASE_URL=postgres://app:app@localhost:55432/app?sslmode=disable
+DATABASE_URL=postgres://app:app@localhost:5432/app?sslmode=disable
 REDIS_ADDR=localhost:6380
 REDIS_PASSWORD=
 OTEL_EXPORTER_OTLP_ENDPOINT=localhost:4319
@@ -150,11 +150,11 @@ WS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
 POSTGRES_DB=app
 POSTGRES_USER=app
 POSTGRES_PASSWORD=app
-POSTGRES_HOST_PORT=55432
+POSTGRES_HOST_PORT=5432
 REDIS_HOST_PORT=6380
 OTEL_GRPC_HOST_PORT=4319"
 
-write_if_missing "$AUTH_DIR/.env" "DATABASE_URL=postgresql://app:app@localhost:55432/app?sslmode=disable
+write_if_missing "$AUTH_DIR/.env" "DATABASE_URL=postgresql://app:app@localhost:5432/app?sslmode=disable
 BETTER_AUTH_SECRET=$(make_secret)
 BETTER_AUTH_URL=http://localhost:3000
 PORT=3000
@@ -170,7 +170,7 @@ BETA_REQUEST_APPROVAL_BASE_URL=http://localhost:3000"
 write_if_missing "$FRONTEND_DIR/.env" "VITE_AUTH_URL=http://localhost:3000
 VITE_API_URL=http://localhost:8080"
 
-POSTGRES_HOST_PORT="$(ensure_local_port "$BACKEND_DIR/.env" POSTGRES_HOST_PORT 55432 55432)"
+POSTGRES_HOST_PORT="$(ensure_local_port "$BACKEND_DIR/.env" POSTGRES_HOST_PORT 5432 55432)"
 REDIS_HOST_PORT="$(ensure_local_port "$BACKEND_DIR/.env" REDIS_HOST_PORT 6380 6380)"
 OTEL_GRPC_HOST_PORT="$(ensure_local_port "$BACKEND_DIR/.env" OTEL_GRPC_HOST_PORT 4319 4319)"
 

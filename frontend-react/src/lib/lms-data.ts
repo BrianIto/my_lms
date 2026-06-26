@@ -25,13 +25,6 @@ export type Course = {
 	modules: Module[];
 };
 
-export type BetaUser = {
-	id: string;
-	email: string;
-	status: "invited" | "active" | "revoked";
-	provider: "email" | "google";
-};
-
 export const courses: Course[] = [
 	{
 		id: "course_ai_products",
@@ -83,27 +76,6 @@ export const courses: Course[] = [
 				],
 			},
 		],
-	},
-];
-
-export const betaUsers: BetaUser[] = [
-	{
-		id: "usr_001",
-		email: "brian@example.com",
-		status: "active",
-		provider: "google",
-	},
-	{
-		id: "usr_002",
-		email: "student@example.com",
-		status: "invited",
-		provider: "email",
-	},
-	{
-		id: "usr_003",
-		email: "paused@example.com",
-		status: "revoked",
-		provider: "google",
 	},
 ];
 

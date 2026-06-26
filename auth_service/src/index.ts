@@ -7,6 +7,8 @@ import {
   decideBetaAccessRequest,
   ensureBetaAccessTable,
   getBetaAccess,
+  listBetaAllowlist,
+  preflightEmailFirstSignin,
   upsertBetaAccess,
 } from "./beta-access.js";
 import { closeDb } from "./db.js";
@@ -35,6 +37,8 @@ app.get("/", (c) => c.json({ name: "auth-service", status: "ok" }));
 // Explicit health check requested for service verification. Better Auth is mounted below.
 app.get("/api/auth/ok", (c) => c.json({ status: "ok" }));
 app.get("/api/beta/access", getBetaAccess);
+app.post("/api/beta/email-first-signin", preflightEmailFirstSignin);
+app.get("/api/beta/allowlist", listBetaAllowlist);
 app.post("/api/beta/allowlist", upsertBetaAccess);
 app.post("/api/beta/requests", createBetaAccessRequest);
 app.get("/api/beta/requests/:decision/:token", decideBetaAccessRequest);

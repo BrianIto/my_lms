@@ -6,11 +6,14 @@ import {
 	RiArrowDownLine,
 	RiBookOpenLine,
 	RiHome2Line,
+	RiLoader4Line,
+	RiLogoutBoxRLine,
 } from "@remixicon/react";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import gsap from "gsap";
 import { AnimatePresence, motion, stagger } from "motion/react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { authClient } from "#/lib/auth-client.ts";
 import { cn } from "#/utils/cn";
 import ListItem, {
 	type IslandPage,
@@ -63,16 +66,70 @@ function getActivePage(pathname: string) {
 	return pages[0];
 }
 
+function getDisplayName(user?: {
+	name?: string | null;
+	email?: string | null;
+}) {
+	const name = user?.name?.trim().split(/\s+/)[0];
+
+	if (name) {
+		return name;
+	}
+
+	const emailLocalPart = user?.email
+		?.split("@")[0]
+		?.trim()
+		.split(/[._-]+/)[0];
+	return emailLocalPart || "";
+}
+
+function isAdminRole(role: string | null | undefined) {
+	return (
+		typeof role === "string" &&
+		role
+			.split(",")
+			.map((value) => value.trim().toLowerCase())
+			.includes("admin")
+	);
+}
+
+function getSessionUserRole(user: unknown) {
+	return (user as { role?: string | null } | null)?.role;
+}
+
 gsap.registerPlugin(useGSAP);
 
 const DynamicIsland: React.FC = () => {
 	const [open, setOpen] = useState(false);
 	const [pageIndex, setPageIndex] = useState(-1);
 	const [selectedIndex, setSelectedIndex] = useState(0);
+	const [showSalute, setShowSalute] = useState(false);
+	const [isSigningOut, setIsSigningOut] = useState(false);
+	const [signOutError, setSignOutError] = useState("");
+	const labelRef = useRef<HTMLSpanElement>(null);
+	const session = authClient.useSession();
 	const navigate = useNavigate();
 	const location = useLocation();
 	const activePage = getActivePage(location.pathname);
+	const activeRoute = activePage.to;
 	const CurrentIcon = activePage.icon ?? RiHome2Line;
+	const isAuthenticated = Boolean(session.data?.user);
+	const isAdmin = isAdminRole(getSessionUserRole(session.data?.user));
+	const availablePages = useMemo(
+		() => pages.filter((page) => page.to !== "/admin" || isAdmin),
+		[isAdmin],
+	);
+	const menuItemCount = availablePages.length + (isAuthenticated ? 1 : 0);
+	const logoutIndex = availablePages.length;
+	const displayName = getDisplayName(session.data?.user);
+	const saluteText = displayName ? `Hi, ${displayName}!` : "";
+	const displayText = showSalute && saluteText ? saluteText : activePage.name;
+	const prefersReducedMotion = useMemo(
+		() =>
+			typeof window !== "undefined" &&
+			window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+		[],
+	);
 
 	const closeIsland = useCallback(() => {
 		setOpen(false);
@@ -86,6 +143,33 @@ const DynamicIsland: React.FC = () => {
 		},
 		[navigate, closeIsland],
 	);
+
+	const handleSignOut = useCallback(async () => {
+		if (isSigningOut) {
+			return;
+		}
+
+		setIsSigningOut(true);
+		setSignOutError("");
+
+		try {
+			const result = await authClient.signOut();
+
+			if (result.error) {
+				setSignOutError(result.error.message ?? "Sign out failed.");
+				return;
+			}
+
+			closeIsland();
+			void navigate({ to: "/", replace: true });
+		} catch (error) {
+			setSignOutError(
+				error instanceof Error ? error.message : "Sign out failed.",
+			);
+		} finally {
+			setIsSigningOut(false);
+		}
+	}, [closeIsland, isSigningOut, navigate]);
 
 	useEffect(() => {
 		function handleKeyDown(event: KeyboardEvent) {
@@ -112,19 +196,25 @@ const DynamicIsland: React.FC = () => {
 
 			if (event.key === "ArrowDown") {
 				event.preventDefault();
-				setSelectedIndex((prev) => (prev + 1) % pages.length);
+				setSelectedIndex((prev) => (prev + 1) % menuItemCount);
 				return;
 			}
 
 			if (event.key === "ArrowUp") {
 				event.preventDefault();
-				setSelectedIndex((prev) => (prev - 1 + pages.length) % pages.length);
+				setSelectedIndex((prev) => (prev - 1 + menuItemCount) % menuItemCount);
 				return;
 			}
 
 			if (event.key === "Enter") {
 				event.preventDefault();
-				const selectedPage = pages[selectedIndex];
+
+				if (isAuthenticated && selectedIndex === logoutIndex) {
+					void handleSignOut();
+					return;
+				}
+
+				const selectedPage = availablePages[selectedIndex];
 
 				if (!selectedPage) {
 					return;
@@ -141,13 +231,67 @@ const DynamicIsland: React.FC = () => {
 
 		window.addEventListener("keydown", handleKeyDown);
 		return () => window.removeEventListener("keydown", handleKeyDown);
-	}, [open, selectedIndex, handleNavigate, closeIsland]);
+	}, [
+		open,
+		selectedIndex,
+		menuItemCount,
+		isAuthenticated,
+		availablePages,
+		handleNavigate,
+		handleSignOut,
+		closeIsland,
+		logoutIndex,
+	]);
 
 	useEffect(() => {
 		if (!open) {
 			setSelectedIndex(0);
+			setSignOutError("");
 		}
 	}, [open]);
+
+	useEffect(() => {
+		if (selectedIndex >= menuItemCount) {
+			setSelectedIndex(0);
+		}
+	}, [menuItemCount, selectedIndex]);
+
+	useEffect(() => {
+		if (!saluteText) {
+			setShowSalute(false);
+			return;
+		}
+
+		setShowSalute(true);
+		gsap.set(labelRef.current, { clearProps: "opacity,transform" });
+
+		const timer = window.setTimeout(() => {
+			if (prefersReducedMotion) {
+				setShowSalute(false);
+				return;
+			}
+
+			gsap.to(labelRef.current, {
+				duration: 0.18,
+				y: -3,
+				opacity: 0,
+				ease: "power2.out",
+				onComplete: () => {
+					setShowSalute(false);
+					gsap.fromTo(
+						labelRef.current,
+						{ y: 3, opacity: 0 },
+						{ duration: 0.24, y: 0, opacity: 1, ease: "power2.out" },
+					);
+				},
+			});
+		}, 3000);
+
+		return () => {
+			window.clearTimeout(timer);
+			gsap.killTweensOf(labelRef.current);
+		};
+	}, [saluteText, prefersReducedMotion]);
 
 	useGSAP(() => {
 		gsap.from(".dynamic-island", {
@@ -204,9 +348,11 @@ const DynamicIsland: React.FC = () => {
 								className="w-3.5 text-[#AEAEAE]"
 							/>
 						</span>
-						<AnimatePresence mode="wait">
-							<TextChangeAnimate key={activePage.name} text={activePage.name} />
-						</AnimatePresence>
+						<span ref={labelRef} className="flex flex-1">
+							<AnimatePresence mode="wait">
+								<TextChangeAnimate key={displayText} text={displayText} />
+							</AnimatePresence>
+						</span>
 
 						<span className="flex gap-1">
 							<span className="-ml-5 w-5 rounded border border-white/10 bg-white/5 text-[12px] opacity-50">
@@ -231,23 +377,74 @@ const DynamicIsland: React.FC = () => {
 						initial={{ opacity: 0 }}
 						animate={{ opacity: 1 }}
 					>
-						<AnimatePresence>
-							{open
-								? pages.map((page, index) => (
-										<ListItem
-											key={page.name}
-											onToggle={() => {
-												setPageIndex((prev) => (prev === index ? -1 : index));
-											}}
-											onClose={closeIsland}
-											isOpen={pageIndex === index}
-											isSelected={selectedIndex === index}
-											page={page}
-											index={index}
+						{open
+							? availablePages.map((page, index) => (
+									<ListItem
+										key={page.name}
+										onToggle={() => {
+											setPageIndex((prev) => (prev === index ? -1 : index));
+										}}
+										onClose={closeIsland}
+										isOpen={pageIndex === index}
+										isSelected={selectedIndex === index}
+										isRouteActive={page.to === activeRoute}
+										page={page}
+										index={index}
+									/>
+								))
+							: null}
+						{open && isAuthenticated ? (
+							<motion.div
+								key="logout"
+								initial={{ opacity: 0 }}
+								animate={{
+									opacity: 1,
+									transition: { delay: logoutIndex * 0.07 },
+								}}
+								exit={{ opacity: 0 }}
+							>
+								<button
+									type="button"
+									onClick={(event) => {
+										event.stopPropagation();
+										void handleSignOut();
+									}}
+									disabled={isSigningOut}
+									aria-describedby={
+										signOutError ? "dynamic-island-sign-out-error" : undefined
+									}
+									className={cn(
+										"flex w-full items-center gap-3 cursor-pointer px-2 py-1.5 text-left text-sm transition-colors first:mt-1 last-of-type:mb-0.75  focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40",
+										"mt-1 border-t border-white/10 pt-2 text-[#AEAEAE] hover:bg-[#1A1A1A] hover:text-white disabled:pointer-events-none disabled:opacity-60",
+										{
+											"bg-[#1A1A1A] text-white": selectedIndex === logoutIndex,
+											"!rounded-b-xl": isAuthenticated,
+										},
+									)}
+								>
+									{isSigningOut ? (
+										<RiLoader4Line
+											aria-hidden="true"
+											className="size-4 animate-spin"
 										/>
-									))
-								: null}
-						</AnimatePresence>
+									) : (
+										<RiLogoutBoxRLine aria-hidden="true" className="size-4" />
+									)}
+									<span className="flex-1">
+										{isSigningOut ? "Signing out…" : "Log out"}
+									</span>
+								</button>
+								{signOutError ? (
+									<p
+										id="dynamic-island-sign-out-error"
+										className="px-2 pb-1 pt-1 text-[11px] leading-4 text-red-400"
+										role="alert"
+									>
+										{signOutError}
+									</p>
+								) : null}
+							</motion.div>
+						) : null}
 					</motion.div>
 				</motion.div>
 			</motion.nav>

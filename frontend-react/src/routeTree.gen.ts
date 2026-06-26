@@ -10,25 +10,20 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as McpRouteImport } from './routes/mcp'
-import { Route as DashboardRouteImport } from './routes/dashboard'
-import { Route as AdminRouteImport } from './routes/admin'
+import { Route as ProtectedRouteImport } from './routes/_protected'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as CoursesSlugRouteImport } from './routes/courses.$slug'
-import { Route as CoursesSlugLessonsLessonIdRouteImport } from './routes/courses.$slug.lessons.$lessonId'
+import { Route as ProtectedDashboardRouteImport } from './routes/_protected.dashboard'
+import { Route as ProtectedAdminRouteImport } from './routes/_protected.admin'
+import { Route as ProtectedCoursesSlugRouteImport } from './routes/_protected.courses.$slug'
+import { Route as ProtectedCoursesSlugLessonsLessonIdRouteImport } from './routes/_protected.courses.$slug_.lessons.$lessonId'
 
 const McpRoute = McpRouteImport.update({
   id: '/mcp',
   path: '/mcp',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DashboardRoute = DashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminRoute = AdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
+const ProtectedRoute = ProtectedRouteImport.update({
+  id: '/_protected',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -36,76 +31,86 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const CoursesSlugRoute = CoursesSlugRouteImport.update({
+const ProtectedDashboardRoute = ProtectedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => ProtectedRoute,
+} as any)
+const ProtectedAdminRoute = ProtectedAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => ProtectedRoute,
+} as any)
+const ProtectedCoursesSlugRoute = ProtectedCoursesSlugRouteImport.update({
   id: '/courses/$slug',
   path: '/courses/$slug',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => ProtectedRoute,
 } as any)
-const CoursesSlugLessonsLessonIdRoute =
-  CoursesSlugLessonsLessonIdRouteImport.update({
-    id: '/lessons/$lessonId',
-    path: '/lessons/$lessonId',
-    getParentRoute: () => CoursesSlugRoute,
+const ProtectedCoursesSlugLessonsLessonIdRoute =
+  ProtectedCoursesSlugLessonsLessonIdRouteImport.update({
+    id: '/courses/$slug_/lessons/$lessonId',
+    path: '/courses/$slug/lessons/$lessonId',
+    getParentRoute: () => ProtectedRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
-  '/dashboard': typeof DashboardRoute
   '/mcp': typeof McpRoute
-  '/courses/$slug': typeof CoursesSlugRouteWithChildren
-  '/courses/$slug/lessons/$lessonId': typeof CoursesSlugLessonsLessonIdRoute
+  '/admin': typeof ProtectedAdminRoute
+  '/dashboard': typeof ProtectedDashboardRoute
+  '/courses/$slug': typeof ProtectedCoursesSlugRoute
+  '/courses/$slug/lessons/$lessonId': typeof ProtectedCoursesSlugLessonsLessonIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
-  '/dashboard': typeof DashboardRoute
   '/mcp': typeof McpRoute
-  '/courses/$slug': typeof CoursesSlugRouteWithChildren
-  '/courses/$slug/lessons/$lessonId': typeof CoursesSlugLessonsLessonIdRoute
+  '/admin': typeof ProtectedAdminRoute
+  '/dashboard': typeof ProtectedDashboardRoute
+  '/courses/$slug': typeof ProtectedCoursesSlugRoute
+  '/courses/$slug/lessons/$lessonId': typeof ProtectedCoursesSlugLessonsLessonIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
-  '/dashboard': typeof DashboardRoute
+  '/_protected': typeof ProtectedRouteWithChildren
   '/mcp': typeof McpRoute
-  '/courses/$slug': typeof CoursesSlugRouteWithChildren
-  '/courses/$slug/lessons/$lessonId': typeof CoursesSlugLessonsLessonIdRoute
+  '/_protected/admin': typeof ProtectedAdminRoute
+  '/_protected/dashboard': typeof ProtectedDashboardRoute
+  '/_protected/courses/$slug': typeof ProtectedCoursesSlugRoute
+  '/_protected/courses/$slug_/lessons/$lessonId': typeof ProtectedCoursesSlugLessonsLessonIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/mcp'
     | '/admin'
     | '/dashboard'
-    | '/mcp'
     | '/courses/$slug'
     | '/courses/$slug/lessons/$lessonId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/mcp'
     | '/admin'
     | '/dashboard'
-    | '/mcp'
     | '/courses/$slug'
     | '/courses/$slug/lessons/$lessonId'
   id:
     | '__root__'
     | '/'
-    | '/admin'
-    | '/dashboard'
+    | '/_protected'
     | '/mcp'
-    | '/courses/$slug'
-    | '/courses/$slug/lessons/$lessonId'
+    | '/_protected/admin'
+    | '/_protected/dashboard'
+    | '/_protected/courses/$slug'
+    | '/_protected/courses/$slug_/lessons/$lessonId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AdminRoute: typeof AdminRoute
-  DashboardRoute: typeof DashboardRoute
+  ProtectedRoute: typeof ProtectedRouteWithChildren
   McpRoute: typeof McpRoute
-  CoursesSlugRoute: typeof CoursesSlugRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -117,18 +122,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof McpRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/dashboard': {
-      id: '/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof DashboardRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin': {
-      id: '/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AdminRouteImport
+    '/_protected': {
+      id: '/_protected'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof ProtectedRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -138,41 +136,60 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/courses/$slug': {
-      id: '/courses/$slug'
+    '/_protected/dashboard': {
+      id: '/_protected/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof ProtectedDashboardRouteImport
+      parentRoute: typeof ProtectedRoute
+    }
+    '/_protected/admin': {
+      id: '/_protected/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof ProtectedAdminRouteImport
+      parentRoute: typeof ProtectedRoute
+    }
+    '/_protected/courses/$slug': {
+      id: '/_protected/courses/$slug'
       path: '/courses/$slug'
       fullPath: '/courses/$slug'
-      preLoaderRoute: typeof CoursesSlugRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof ProtectedCoursesSlugRouteImport
+      parentRoute: typeof ProtectedRoute
     }
-    '/courses/$slug/lessons/$lessonId': {
-      id: '/courses/$slug/lessons/$lessonId'
-      path: '/lessons/$lessonId'
+    '/_protected/courses/$slug_/lessons/$lessonId': {
+      id: '/_protected/courses/$slug_/lessons/$lessonId'
+      path: '/courses/$slug/lessons/$lessonId'
       fullPath: '/courses/$slug/lessons/$lessonId'
-      preLoaderRoute: typeof CoursesSlugLessonsLessonIdRouteImport
-      parentRoute: typeof CoursesSlugRoute
+      preLoaderRoute: typeof ProtectedCoursesSlugLessonsLessonIdRouteImport
+      parentRoute: typeof ProtectedRoute
     }
   }
 }
 
-interface CoursesSlugRouteChildren {
-  CoursesSlugLessonsLessonIdRoute: typeof CoursesSlugLessonsLessonIdRoute
+interface ProtectedRouteChildren {
+  ProtectedAdminRoute: typeof ProtectedAdminRoute
+  ProtectedDashboardRoute: typeof ProtectedDashboardRoute
+  ProtectedCoursesSlugRoute: typeof ProtectedCoursesSlugRoute
+  ProtectedCoursesSlugLessonsLessonIdRoute: typeof ProtectedCoursesSlugLessonsLessonIdRoute
 }
 
-const CoursesSlugRouteChildren: CoursesSlugRouteChildren = {
-  CoursesSlugLessonsLessonIdRoute: CoursesSlugLessonsLessonIdRoute,
+const ProtectedRouteChildren: ProtectedRouteChildren = {
+  ProtectedAdminRoute: ProtectedAdminRoute,
+  ProtectedDashboardRoute: ProtectedDashboardRoute,
+  ProtectedCoursesSlugRoute: ProtectedCoursesSlugRoute,
+  ProtectedCoursesSlugLessonsLessonIdRoute:
+    ProtectedCoursesSlugLessonsLessonIdRoute,
 }
 
-const CoursesSlugRouteWithChildren = CoursesSlugRoute._addFileChildren(
-  CoursesSlugRouteChildren,
+const ProtectedRouteWithChildren = ProtectedRoute._addFileChildren(
+  ProtectedRouteChildren,
 )
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AdminRoute: AdminRoute,
-  DashboardRoute: DashboardRoute,
+  ProtectedRoute: ProtectedRouteWithChildren,
   McpRoute: McpRoute,
-  CoursesSlugRoute: CoursesSlugRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

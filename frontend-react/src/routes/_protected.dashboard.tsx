@@ -22,7 +22,7 @@ import { Progress } from "#/components/ui/progress.tsx";
 import { countLessons, courses, formatDuration } from "#/lib/lms-data.ts";
 import { cn } from "#/utils/cn";
 
-export const Route = createFileRoute("/dashboard")({
+export const Route = createFileRoute("/_protected/dashboard")({
 	component: DashboardView,
 });
 
@@ -43,7 +43,6 @@ function DashboardView() {
 			}
 			description="A calm cockpit for course progress, next videos, and study momentum — focused on what to watch, review, and complete next."
 		>
-			<div className="pointer-events-none absolute inset-y-0 left-0 z-0 w-1/3 border-r border-white/10 bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] bg-[size:24px_24px] opacity-30" />
 			<div className="grid items-start lg:grid-cols-[1fr_340px]">
 				<section className="grid grid-cols-1">
 					{[...courses, ...courses, ...courses].map((course) => (

@@ -1,13 +1,63 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import type { Context } from "hono";
 import { Resend } from "resend";
-import { auth } from "./auth.js";
 import { db } from "./db.js";
 import { env } from "./env.js";
 
-type BetaStatus = "invited" | "active" | "revoked";
+export type BetaStatus = "invited" | "active" | "revoked";
+export type BetaAccessEntry = {
+  id: string;
+  email: string;
+  user_id: string | null;
+  status: BetaStatus;
+  created_at: Date;
+  updated_at: Date;
+};
 type BetaRequestStatus = "pending" | "approved" | "declined";
 type BetaDecision = "approve" | "decline";
+type Query = <T = Record<string, unknown>>(sql: string, params?: unknown[]) => Promise<{ rows: T[] }>;
+type BetaRequestInput = {
+  email?: string;
+  preferredName?: string;
+  whatsappContact?: string;
+  whatsappConsent?: boolean;
+};
+type BetaRequestSubmission = {
+  email: string;
+  status: "pending";
+  notification: "sent" | "failed" | "already_sent";
+};
+type BetaRequestDeps = {
+  query?: Query;
+  sendNotification?: (request: BetaRequestRow, approveToken: string, declineToken: string) => Promise<{ id: string }>;
+  randomId?: () => string;
+  randomToken?: () => string;
+  onNotificationError?: (error: unknown) => void;
+};
+
+type LoginGateUser = {
+  id: string;
+  email?: string | null;
+  role?: string | null;
+};
+
+type LoginGateDeps = {
+  query?: Query;
+  updateUserRole?: (userId: string, role: "admin") => Promise<unknown>;
+};
+
+type EmailCredentialState = "has_password" | "needs_password_setup";
+
+export type EmailFirstSigninPreflight = {
+  email: string;
+  credential_state: EmailCredentialState;
+};
+
+export type BetaLoginDecision = {
+  allowed: boolean;
+  reason: "active_beta" | "admin" | "google_bootstrap_admin" | "missing_email" | "inactive_beta";
+  email?: string;
+};
 
 type BetaRequestRow = {
   id: string;
@@ -23,13 +73,16 @@ type BetaRequestRow = {
   updated_at: Date;
 };
 
-const normalizeEmail = (email: string) => email.trim().toLowerCase();
+export const GOOGLE_BOOTSTRAP_ADMIN_EMAIL = "brian.oliveira100@gmail.com";
+
+export const normalizeEmail = (email: string) => email.trim().toLowerCase();
 const normalizeOptionalText = (value: unknown) => {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
 };
 
+const BETA_STATUSES = ["invited", "active", "revoked"] as const;
 const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 const tokenHash = (token: string) => createHash("sha256").update(token).digest("hex");
 const escapeHtml = (value: string) =>
@@ -88,18 +141,175 @@ export async function ensureBetaAccessTable() {
   `);
 }
 
+export async function getBetaAccessStatus(email: string, query: Query = db.query.bind(db)): Promise<BetaStatus | null> {
+  const normalizedEmail = normalizeEmail(email);
+  const result = await query<{ status: BetaStatus }>(
+    "SELECT status FROM beta_access WHERE email = $1 LIMIT 1",
+    [normalizedEmail],
+  );
+  return result.rows[0]?.status ?? null;
+}
+
+export async function getEmailFirstSigninPreflight(
+  input: { email?: string } | null,
+  query: Query = db.query.bind(db),
+): Promise<EmailFirstSigninPreflight> {
+  const email = normalizeEmail(input?.email ?? "");
+  if (!email || !isValidEmail(email)) {
+    throw new Error("invalid email");
+  }
+
+  const status = await getBetaAccessStatus(email, query);
+  if (status !== "active") {
+    throw new Error("beta access required");
+  }
+
+  const result = await query<{ has_password: boolean }>(
+    `SELECT EXISTS (
+       SELECT 1
+       FROM "user" u
+       JOIN account a ON a."userId" = u.id
+       WHERE u.email = $1
+         AND a."providerId" = 'credential'
+         AND a.password IS NOT NULL
+       LIMIT 1
+     ) AS has_password`,
+    [email],
+  );
+
+  return {
+    email,
+    credential_state: result.rows[0]?.has_password ? "has_password" : "needs_password_setup",
+  };
+}
+
+export async function upsertBetaAccessForUser(
+  email: string,
+  status: BetaStatus,
+  userId?: string | null,
+  query: Query = db.query.bind(db),
+) {
+  const normalizedEmail = normalizeEmail(email);
+  await query(
+    `INSERT INTO beta_access (email, user_id, status)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (email)
+     DO UPDATE SET
+       user_id = COALESCE(EXCLUDED.user_id, beta_access.user_id),
+       status = EXCLUDED.status,
+       updated_at = now()`,
+    [normalizedEmail, userId ?? null, status],
+  );
+}
+
+export function isGoogleBootstrapAdminEmail(email: string | null | undefined) {
+  return typeof email === "string" && normalizeEmail(email) === GOOGLE_BOOTSTRAP_ADMIN_EMAIL;
+}
+
+export function isAdminRole(role: string | null | undefined) {
+  return typeof role === "string" && role.split(",").map((value) => value.trim().toLowerCase()).includes("admin");
+}
+
+export function isBetaStatus(status: unknown): status is BetaStatus {
+  return typeof status === "string" && BETA_STATUSES.includes(status as BetaStatus);
+}
+
+export function hasAdminSession(session: unknown) {
+  const user = (session as { user?: { role?: string | null } } | null)?.user;
+  return isAdminRole(user?.role);
+}
+
+async function requireBetaAllowlistAdmin(c: Context) {
+  const { auth } = await import("./auth.js");
+  const session = await auth.api.getSession({ headers: c.req.raw.headers });
+  if (!session?.user) {
+    return { ok: false as const, response: c.json({ error: "authentication required" }, 401) };
+  }
+  if (!hasAdminSession(session)) {
+    return { ok: false as const, response: c.json({ error: "admin access required" }, 403) };
+  }
+  return { ok: true as const };
+}
+
+export async function listBetaAccessEntries(query: Query = db.query.bind(db)) {
+  const result = await query<BetaAccessEntry>(
+    `SELECT id::text, email, user_id, status, created_at, updated_at
+     FROM beta_access
+     ORDER BY updated_at DESC, email ASC`,
+  );
+  return result.rows.map((row) => ({ ...row, email: normalizeEmail(row.email) }));
+}
+
+export async function upsertBetaAccessEntry(
+  input: { email?: string; status?: unknown },
+  query: Query = db.query.bind(db),
+) {
+  const email = normalizeEmail(input.email ?? "");
+  if (!email || !isValidEmail(email)) {
+    throw new Error("invalid email");
+  }
+
+  const status = input.status ?? "invited";
+  if (!isBetaStatus(status)) {
+    throw new Error("invalid status");
+  }
+
+  const result = await query<BetaAccessEntry>(
+    `INSERT INTO beta_access (email, status)
+     VALUES ($1, $2)
+     ON CONFLICT (email)
+     DO UPDATE SET status = EXCLUDED.status, updated_at = now()
+     RETURNING id::text, email, user_id, status, created_at, updated_at`,
+    [email, status],
+  );
+
+  const entry = result.rows[0];
+  if (!entry) {
+    throw new Error("could not save beta access entry");
+  }
+  return { ...entry, email: normalizeEmail(entry.email) };
+}
+
+export async function evaluateBetaLoginAccess(
+  user: LoginGateUser,
+  provider: string | null | undefined,
+  deps: LoginGateDeps = {},
+): Promise<BetaLoginDecision> {
+  const query = deps.query ?? db.query.bind(db);
+  const email = user.email ? normalizeEmail(user.email) : undefined;
+
+  if (!email) {
+    return { allowed: false, reason: "missing_email" };
+  }
+
+  if (provider === "google" && isGoogleBootstrapAdminEmail(email)) {
+    await upsertBetaAccessForUser(email, "active", user.id, query);
+    await deps.updateUserRole?.(user.id, "admin");
+    return { allowed: true, reason: "google_bootstrap_admin", email };
+  }
+
+  if (isAdminRole(user.role)) {
+    return { allowed: true, reason: "admin", email };
+  }
+
+  const status = await getBetaAccessStatus(email, query);
+  if (status === "active") {
+    await upsertBetaAccessForUser(email, "active", user.id, query);
+    return { allowed: true, reason: "active_beta", email };
+  }
+
+  return { allowed: false, reason: "inactive_beta", email };
+}
+
 export async function getBetaAccess(c: Context) {
+  const { auth } = await import("./auth.js");
   const session = await auth.api.getSession({ headers: c.req.raw.headers });
   if (!session?.user?.email) {
     return c.json({ authenticated: false, beta_access: false, status: "anonymous" }, 401);
   }
 
   const email = normalizeEmail(session.user.email);
-  const result = await db.query<{ status: BetaStatus }>(
-    "SELECT status FROM beta_access WHERE email = $1 LIMIT 1",
-    [email],
-  );
-  const status = result.rows[0]?.status ?? "invited";
+  const status = (await getBetaAccessStatus(email)) ?? "invited";
   return c.json({
     authenticated: true,
     beta_access: status === "active",
@@ -108,47 +318,65 @@ export async function getBetaAccess(c: Context) {
   });
 }
 
-export async function upsertBetaAccess(c: Context) {
-  const body = await c.req.json<{ email?: string; status?: BetaStatus }>();
-  if (!body.email) {
-    return c.json({ error: "email is required" }, 400);
+export async function preflightEmailFirstSignin(c: Context) {
+  const body = await c.req.json<{ email?: string }>().catch(() => null);
+
+  try {
+    const preflight = await getEmailFirstSigninPreflight(body);
+    return c.json(preflight);
+  } catch (error) {
+    if (error instanceof Error && error.message === "invalid email") {
+      return c.json({ error: "invalid email" }, 400);
+    }
+    if (error instanceof Error && error.message === "beta access required") {
+      return c.json({ error: "beta access required" }, 403);
+    }
+    throw error;
   }
-  const status = body.status ?? "invited";
-  if (!["invited", "active", "revoked"].includes(status)) {
-    return c.json({ error: "invalid status" }, 400);
-  }
-  const email = normalizeEmail(body.email);
-  const result = await db.query(
-    `INSERT INTO beta_access (email, status)
-     VALUES ($1, $2)
-     ON CONFLICT (email)
-     DO UPDATE SET status = EXCLUDED.status, updated_at = now()
-     RETURNING id, email, user_id, status, created_at, updated_at`,
-    [email, status],
-  );
-  return c.json(result.rows[0], 201);
 }
 
-export async function createBetaAccessRequest(c: Context) {
-  const body = await c.req.json<{
-    email?: string;
-    preferredName?: string;
-    whatsappContact?: string;
-    whatsappConsent?: boolean;
-  }>().catch(() => null);
+export async function listBetaAllowlist(c: Context) {
+  const admin = await requireBetaAllowlistAdmin(c);
+  if (!admin.ok) return admin.response;
 
-  const email = normalizeEmail(body?.email ?? "");
+  const entries = await listBetaAccessEntries();
+  return c.json({ entries });
+}
+
+export async function upsertBetaAccess(c: Context) {
+  const admin = await requireBetaAllowlistAdmin(c);
+  if (!admin.ok) return admin.response;
+
+  const body = await c.req.json<{ email?: string; status?: BetaStatus }>().catch(() => null);
+  try {
+    const entry = await upsertBetaAccessEntry(body ?? {});
+    return c.json(entry, 201);
+  } catch (error) {
+    if (error instanceof Error && ["invalid email", "invalid status"].includes(error.message)) {
+      return c.json({ error: error.message }, 400);
+    }
+    throw error;
+  }
+}
+
+export async function submitBetaAccessRequest(input: BetaRequestInput | null, deps: BetaRequestDeps = {}): Promise<BetaRequestSubmission> {
+  const query = deps.query ?? db.query.bind(db);
+  const sendNotification = deps.sendNotification ?? sendBetaRequestNotification;
+  const randomId = deps.randomId ?? randomUUID;
+  const randomToken = deps.randomToken ?? (() => randomBytes(32).toString("base64url"));
+
+  const email = normalizeEmail(input?.email ?? "");
   if (!email || !isValidEmail(email)) {
-    return c.json({ error: "invalid email" }, 400);
+    throw new Error("invalid email");
   }
 
-  const preferredName = normalizeOptionalText(body?.preferredName);
-  const whatsappConsent = body?.whatsappConsent === true;
-  const whatsappContact = whatsappConsent ? normalizeOptionalText(body?.whatsappContact) : null;
-  const approveToken = randomBytes(32).toString("base64url");
-  const declineToken = randomBytes(32).toString("base64url");
+  const preferredName = normalizeOptionalText(input?.preferredName);
+  const whatsappConsent = input?.whatsappConsent === true;
+  const whatsappContact = whatsappConsent ? normalizeOptionalText(input?.whatsappContact) : null;
+  const approveToken = randomToken();
+  const declineToken = randomToken();
 
-  const result = await db.query<BetaRequestRow>(
+  const result = await query<BetaRequestRow>(
     `INSERT INTO beta_access_requests (
        id, email, preferred_name, whatsapp_contact, whatsapp_consent, status, approve_token_hash, decline_token_hash
      )
@@ -159,37 +387,97 @@ export async function createBetaAccessRequest(c: Context) {
        whatsapp_contact = EXCLUDED.whatsapp_contact,
        whatsapp_consent = EXCLUDED.whatsapp_consent,
        status = CASE WHEN beta_access_requests.status = 'pending' THEN beta_access_requests.status ELSE 'pending' END,
-       approve_token_hash = CASE WHEN beta_access_requests.status = 'pending' AND beta_access_requests.approve_token_hash IS NOT NULL THEN beta_access_requests.approve_token_hash ELSE EXCLUDED.approve_token_hash END,
-       decline_token_hash = CASE WHEN beta_access_requests.status = 'pending' AND beta_access_requests.decline_token_hash IS NOT NULL THEN beta_access_requests.decline_token_hash ELSE EXCLUDED.decline_token_hash END,
+       approve_token_hash = CASE WHEN beta_access_requests.status = 'pending' AND beta_access_requests.notification_sent_at IS NOT NULL AND beta_access_requests.approve_token_hash IS NOT NULL THEN beta_access_requests.approve_token_hash ELSE EXCLUDED.approve_token_hash END,
+       decline_token_hash = CASE WHEN beta_access_requests.status = 'pending' AND beta_access_requests.notification_sent_at IS NOT NULL AND beta_access_requests.decline_token_hash IS NOT NULL THEN beta_access_requests.decline_token_hash ELSE EXCLUDED.decline_token_hash END,
        notification_sent_at = CASE WHEN beta_access_requests.status = 'pending' THEN beta_access_requests.notification_sent_at ELSE NULL END,
        resend_email_id = CASE WHEN beta_access_requests.status = 'pending' THEN beta_access_requests.resend_email_id ELSE NULL END,
        decided_at = CASE WHEN beta_access_requests.status = 'pending' THEN beta_access_requests.decided_at ELSE NULL END,
        updated_at = now()
      RETURNING id, email, preferred_name, whatsapp_contact, whatsapp_consent, status, approve_token_hash, decline_token_hash, notification_sent_at, created_at, updated_at`,
-    [randomUUID(), email, preferredName, whatsappContact, whatsappConsent, tokenHash(approveToken), tokenHash(declineToken)],
+    [randomId(), email, preferredName, whatsappContact, whatsappConsent, tokenHash(approveToken), tokenHash(declineToken)],
   );
 
   const request = result.rows[0];
   if (!request) {
-    return c.json({ error: "could not save beta request" }, 500);
+    throw new Error("could not save beta request");
   }
 
-  if (!request.notification_sent_at) {
-    const sent = await sendBetaRequestNotification(request, approveToken, declineToken);
-    await db.query(
+  await query(
+    `INSERT INTO beta_access (email, status)
+     VALUES ($1, 'invited')
+     ON CONFLICT (email) DO NOTHING`,
+    [request.email],
+  );
+
+  if (request.notification_sent_at) {
+    return { email: request.email, status: "pending", notification: "already_sent" };
+  }
+
+  try {
+    const sent = await sendNotification(request, approveToken, declineToken);
+    await query(
       "UPDATE beta_access_requests SET notification_sent_at = now(), resend_email_id = $2, updated_at = now() WHERE id = $1",
       [request.id, sent.id],
     );
+    return { email: request.email, status: "pending", notification: "sent" };
+  } catch (error) {
+    deps.onNotificationError?.(error);
+    return { email: request.email, status: "pending", notification: "failed" };
+  }
+}
+
+export async function createBetaAccessRequest(c: Context) {
+  const body = await c.req.json<BetaRequestInput>().catch(() => null);
+
+  try {
+    const submission = await submitBetaAccessRequest(body, {
+      onNotificationError: (error) => console.error("Beta request notification failed after persistence", error),
+    });
+
+    return c.json(
+      {
+        email: submission.email,
+        status: submission.status,
+        notification: submission.notification,
+        message:
+          submission.notification === "failed"
+            ? "Request saved — admin notification is temporarily unavailable, but your pending request is recorded."
+            : "Request sent — we’ll notify you by email or WhatsApp.",
+      },
+      202,
+    );
+  } catch (error) {
+    if (error instanceof Error && error.message === "invalid email") {
+      return c.json({ error: "invalid email" }, 400);
+    }
+    throw error;
+  }
+}
+
+export async function decideBetaAccessRequestWithQuery(decision: BetaDecision, token: string, query: Query = db.query.bind(db)) {
+  const tokenColumn = decision === "approve" ? "approve_token_hash" : "decline_token_hash";
+  const result = await query<BetaRequestRow>(
+    `UPDATE beta_access_requests
+     SET status = $1, approve_token_hash = NULL, decline_token_hash = NULL, decided_at = now(), updated_at = now()
+     WHERE ${tokenColumn} = $2 AND status = 'pending'
+     RETURNING id, email, preferred_name, whatsapp_contact, whatsapp_consent, status, approve_token_hash, decline_token_hash, notification_sent_at, created_at, updated_at`,
+    [decision === "approve" ? "approved" : "declined", tokenHash(token)],
+  );
+
+  const request = result.rows[0];
+  if (!request) return null;
+
+  if (decision === "approve") {
+    await query(
+      `INSERT INTO beta_access (email, status)
+       VALUES ($1, 'active')
+       ON CONFLICT (email)
+       DO UPDATE SET status = 'active', updated_at = now()`,
+      [request.email],
+    );
   }
 
-  return c.json(
-    {
-      email: request.email,
-      status: "pending",
-      message: "Request sent — we’ll notify you by email or WhatsApp.",
-    },
-    202,
-  );
+  return request;
 }
 
 export async function decideBetaAccessRequest(c: Context) {
@@ -199,28 +487,9 @@ export async function decideBetaAccessRequest(c: Context) {
     return c.json({ error: "invalid approval link" }, 400);
   }
 
-  const tokenColumn = decision === "approve" ? "approve_token_hash" : "decline_token_hash";
-  const result = await db.query<BetaRequestRow>(
-    `UPDATE beta_access_requests
-     SET status = $1, approve_token_hash = NULL, decline_token_hash = NULL, decided_at = now(), updated_at = now()
-     WHERE ${tokenColumn} = $2 AND status = 'pending'
-     RETURNING id, email, preferred_name, whatsapp_contact, whatsapp_consent, status, approve_token_hash, decline_token_hash, notification_sent_at, created_at, updated_at`,
-    [decision === "approve" ? "approved" : "declined", tokenHash(token)],
-  );
-
-  const request = result.rows[0];
+  const request = await decideBetaAccessRequestWithQuery(decision, token);
   if (!request) {
     return c.html(renderDecisionPage("Invalid or expired link", "This beta request link has already been used or does not exist."), 400);
-  }
-
-  if (decision === "approve") {
-    await db.query(
-      `INSERT INTO beta_access (email, status)
-       VALUES ($1, 'active')
-       ON CONFLICT (email)
-       DO UPDATE SET status = 'active', updated_at = now()`,
-      [request.email],
-    );
   }
 
   return c.html(

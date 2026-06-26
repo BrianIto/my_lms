@@ -22,7 +22,7 @@ import { Progress } from "#/components/ui/progress.tsx";
 import { Separator } from "#/components/ui/separator.tsx";
 import { countLessons, formatDuration, getCourse } from "#/lib/lms-data.ts";
 
-export const Route = createFileRoute("/courses/$slug")({
+export const Route = createFileRoute("/_protected/courses/$slug")({
 	component: CourseView,
 });
 

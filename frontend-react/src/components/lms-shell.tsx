@@ -1,4 +1,3 @@
-import { LmsTopbar } from "#/components/lms-topbar.tsx";
 import { cn } from "#/lib/utils.ts";
 
 export function LmsShell({
@@ -17,10 +16,11 @@ export function LmsShell({
 	return (
 		<main
 			className={cn(
-				"relative min-h-screen overflow-hidden bg-background px-4 py-4 text-foreground sm:py-6",
+				"relative min-h-screen overflow-hidden bg-background px-4 pb-4 pt-22 text-foreground sm:pb-6",
 				className,
 			)}
 		>
+			<div className="pointer-events-none absolute inset-y-0 left-0 z-0 w-1/3 border-r border-white/10 bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] bg-[size:24px_24px] opacity-30" />
 			<div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_50%_8%,rgba(255,186,90,0.105),transparent_27%),radial-gradient(circle_at_50%_58%,rgba(255,255,255,0.052),transparent_36%)]" />
 			<div className="pointer-events-none fixed inset-y-0 left-0 -z-10 w-[34vw] origin-left border-r border-white/10 bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] bg-[size:16px_16px] opacity-25 md:w-[28vw] md:bg-[size:56px_56px] md:opacity-35" />
 			<div className="pointer-events-none fixed inset-y-0 right-0 -z-10 w-[34vw] origin-right border-l border-white/10 bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] bg-[size:16px_16px] opacity-20 md:w-[28vw] md:bg-[size:56px_56px] md:opacity-30" />
@@ -32,6 +32,7 @@ export function LmsShell({
 				xmlns="http://www.w3.org/2000/svg"
 				aria-hidden="true"
 			>
+				{" "}
 				<circle
 					stroke="rgba(255,255,255,0.18)"
 					r="20"
@@ -50,8 +51,6 @@ export function LmsShell({
 				/>
 			</svg>
 			<div className="mx-auto flex w-full max-w-[1180px] flex-col gap-8 md:gap-10">
-				<LmsTopbar />
-
 				<section className="grid gap-8 lg:grid-cols-[1fr_320px] lg:items-end">
 					<div className="flex flex-col gap-4">
 						<div className="flex w-fit items-center gap-2 rounded-full bg-amber/5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-white/50">
