@@ -28,6 +28,10 @@ Operational and documentation routes are intentionally unversioned:
 `/health` must remain `http://localhost:8080/health`, not `http://localhost:8080/api/v1/health`.
 OpenAPI annotations use `@BasePath /` plus full `@Router /api/v1/...` paths for business endpoints so Scalar shows accurate URLs.
 
+## Database ownership
+
+The Go backend does not own identity tables and must not create a generic `users` table. Better Auth in `auth_service/` owns users, sessions, accounts, and related auth migrations. Migration `003_drop_legacy_backend_users` only removes the old backend scaffold table when it exactly matches the obsolete three-column shape.
+
 ## Development
 
 ```bash

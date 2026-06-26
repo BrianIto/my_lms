@@ -3,7 +3,6 @@ package handler
 
 import (
 	"backend-go/docs"
-	"backend-go/internal/repository"
 	"backend-go/internal/service"
 	"backend-go/internal/ws"
 	"backend-go/pkg/response"
@@ -11,12 +10,10 @@ import (
 	scalar "github.com/MarceloPetrucio/go-scalar-api-reference"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/jackc/pgx/v5/pgtype"
 	httpSwagger "github.com/swaggo/http-swagger"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.uber.org/zap"
 	"net/http"
-	"strconv"
 	"strings"
 )
 
@@ -50,16 +47,10 @@ func (h *Handler) Routes() http.Handler {
 		r.Get("/courses/{slug}", h.GetCourse)
 		r.Get("/courses/{slug}/progress", h.GetCourseProgress)
 		r.Post("/lessons/{lessonID}/progress", h.UpdateLessonProgress)
-		r.Get("/users", h.ListUsers)
-		r.Post("/users", h.CreateUser)
-		r.Get("/users/{id}", h.GetUser)
 		r.Get("/ws", ws.Serve(h.hub, h.wsAllowedOrigins, h.env == "development", h.logger))
 	})
 	return r
 }
-
-// UserResponse is the user payload exposed in API docs.
-type UserResponse = repository.User
 
 // BetaAccessRequestBody is the public beta request body.
 type BetaAccessRequestBody struct {
@@ -226,81 +217,6 @@ func (h *Handler) UpdateLessonProgress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	response.JSON(w, http.StatusOK, progress)
-}
-
-// CreateUserRequest is the create user body.
-type CreateUserRequest struct {
-	Email string `json:"email" example:"user@example.com"`
-}
-
-// CreateUser godoc
-// @Summary Create user
-// @Description Creates a user.
-// @Tags users
-// @Accept json
-// @Produce json
-// @Param body body CreateUserRequest true "User payload"
-// @Success 201 {object} UserResponse
-// @Failure 400 {object} response.ErrorResponse
-// @Router /api/v1/users [post]
-func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
-	var req CreateUserRequest
-	if err := jsonNewDecoder(r).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid json")
-		return
-	}
-	u, err := h.service.CreateUser(r.Context(), req.Email)
-	if err != nil {
-		response.Error(w, http.StatusInternalServerError, "create user")
-		return
-	}
-	response.JSON(w, http.StatusCreated, u)
-}
-
-// ListUsers godoc
-// @Summary List users
-// @Description Lists users.
-// @Tags users
-// @Produce json
-// @Param limit query int false "Limit"
-// @Param offset query int false "Offset"
-// @Success 200 {array} UserResponse
-// @Router /api/v1/users [get]
-func (h *Handler) ListUsers(w http.ResponseWriter, r *http.Request) {
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	if limit == 0 {
-		limit = 50
-	}
-	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
-	users, err := h.service.ListUsers(r.Context(), int32(limit), int32(offset))
-	if err != nil {
-		response.Error(w, http.StatusInternalServerError, "list users")
-		return
-	}
-	response.JSON(w, http.StatusOK, users)
-}
-
-// GetUser godoc
-// @Summary Get user
-// @Description Gets a user by UUID.
-// @Tags users
-// @Produce json
-// @Param id path string true "User ID"
-// @Success 200 {object} UserResponse
-// @Failure 404 {object} response.ErrorResponse
-// @Router /api/v1/users/{id} [get]
-func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
-	var id pgtype.UUID
-	if err := id.Scan(chi.URLParam(r, "id")); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid id")
-		return
-	}
-	u, err := h.service.GetUserByID(r.Context(), id)
-	if err != nil {
-		response.Error(w, http.StatusNotFound, "user not found")
-		return
-	}
-	response.JSON(w, http.StatusOK, u)
 }
 
 func (h *Handler) cors(next http.Handler) http.Handler {

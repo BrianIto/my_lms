@@ -84,30 +84,6 @@ export const courses: Course[] = [
 			},
 		],
 	},
-	{
-		id: "course_agents",
-		slug: "agentic-systems",
-		title: "Agentic Systems in Production",
-		description:
-			"Build agents with disciplined boundaries: tools, traces, cache, evaluation, and operator control.",
-		status: "draft",
-		progress: 0,
-		modules: [
-			{
-				id: "mod_agents_01",
-				title: "Foundations",
-				lessons: [
-					{
-						id: "lesson_agents_intro",
-						title: "What belongs in an agent loop",
-						youtubeEmbedUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
-						durationSeconds: 510,
-						status: "not_started",
-					},
-				],
-			},
-		],
-	},
 ];
 
 export const betaUsers: BetaUser[] = [

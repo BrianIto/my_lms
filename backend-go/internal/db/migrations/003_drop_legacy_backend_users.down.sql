@@ -1,0 +1,2 @@
+-- Intentionally irreversible. The backend must not own or recreate a users table;
+-- identity tables belong to auth_service / Better Auth.

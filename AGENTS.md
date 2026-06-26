@@ -28,6 +28,7 @@ If a task crosses multiple areas, read every relevant plan file and keep the imp
 - Initial knowledge tracking is progress-based: percentage of watched/marked-complete videos per course.
 - Auth must use Better Auth, support email/password and Google sign-in, and gate beta access for selected users.
 - Keep the architecture service-oriented: auth owns identity, backend owns LMS business data, frontend composes user experience.
+- Use one PostgreSQL database/public schema for local app data; separate ownership by table/service, not by creating a second auth database/schema.
 
 ## Repository commands
 

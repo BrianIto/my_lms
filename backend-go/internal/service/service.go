@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"backend-go/internal/repository"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // Cache defines cache operations used by Service.
@@ -51,31 +50,4 @@ func NormalizeEmail(email string) (string, error) {
 		return "", fmt.Errorf("invalid email")
 	}
 	return normalizedEmail, nil
-}
-
-// CreateUser creates a user.
-func (s *Service) CreateUser(ctx context.Context, email string) (repository.User, error) {
-	u, err := s.repo.CreateUser(ctx, email)
-	if err != nil {
-		return repository.User{}, fmt.Errorf("service create user: %w", err)
-	}
-	return u, nil
-}
-
-// ListUsers lists users.
-func (s *Service) ListUsers(ctx context.Context, limit, offset int32) ([]repository.User, error) {
-	users, err := s.repo.ListUsers(ctx, repository.ListUsersParams{Limit: limit, Offset: offset})
-	if err != nil {
-		return nil, fmt.Errorf("service list users: %w", err)
-	}
-	return users, nil
-}
-
-// GetUserByID returns a user by UUID.
-func (s *Service) GetUserByID(ctx context.Context, id pgtype.UUID) (repository.User, error) {
-	u, err := s.repo.GetUserByID(ctx, id)
-	if err != nil {
-		return repository.User{}, fmt.Errorf("service get user by id: %w", err)
-	}
-	return u, nil
 }

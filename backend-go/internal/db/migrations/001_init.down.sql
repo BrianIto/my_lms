@@ -1,1 +1,2 @@
-DROP TABLE IF EXISTS users;
+-- 001_init only enables pgcrypto for gen_random_uuid(). Keep the extension in place
+-- because later migrations may still depend on it.

@@ -22,13 +22,13 @@ cp .env.example .env
 npm install
 ```
 
-Set `DATABASE_URL` in `.env` to your PostgreSQL connection string:
+Set `DATABASE_URL` in `.env` to the same PostgreSQL database and `public` schema used by the Go backend:
 
 ```env
-DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DB_NAME?schema=public"
+DATABASE_URL="postgresql://app:app@localhost:55432/app?sslmode=disable"
 ```
 
-For managed PostgreSQL providers, you may need SSL:
+For managed PostgreSQL providers, point both backend and auth service at the same database. You may need SSL:
 
 ```env
 DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DB_NAME?sslmode=require"
@@ -78,7 +78,7 @@ GOOGLE_CLIENT_SECRET="your-google-client-secret"
 
 ## Beta access
 
-The service creates app-owned `beta_access` and `beta_access_requests` tables on startup for private beta gating and public beta-request review.
+The service creates app-owned `beta_access` and `beta_access_requests` tables in the shared application database on startup for private beta gating and public beta-request review.
 
 Public beta requests are saved as `pending`, then a Resend notification is sent to the admin recipient with single-use approve/decline links. Approving a request marks it `approved` and upserts the normalized email into `beta_access` with `active` status; declining records the decision without granting access.
 

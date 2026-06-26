@@ -1,10 +1,16 @@
 import { useGSAP } from "@gsap/react";
+import {
+	RiArrowRightLine,
+	RiCheckboxCircleLine,
+	RiLoader4Line,
+	RiLock2Line,
+} from "@remixicon/react";
 import { createFileRoute } from "@tanstack/react-router";
 import gsap from "gsap";
 import { DrawSVGPlugin } from "gsap/DrawSVGPlugin";
 import { SplitText } from "gsap/SplitText";
-import { ArrowRight, CheckCircle2, Loader2, LockKeyhole } from "lucide-react";
 import { type FormEvent, useRef, useState } from "react";
+import { CourseLogo } from "#/components/course-logo.tsx";
 import { SignInDialog } from "#/components/sign-in-dialog.tsx";
 import GlowingTag from "#/components/storybook/GlowingTag";
 import TagMarquee from "#/components/storybook/TagMarquee";
@@ -269,7 +275,7 @@ function Home() {
 						<Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
 							<DialogTrigger asChild>
 								<GlowingTag size="lg">
-									<LockKeyhole aria-hidden="true" className="size-4 mr-2" />
+									<RiLock2Line aria-hidden="true" className="size-4 mr-2" />
 									Request beta access
 								</GlowingTag>
 							</DialogTrigger>
@@ -296,7 +302,7 @@ function Home() {
 									className="button inline-flex items-center gap-2 px-3 py-3 text-sm tracking-tight text-[#cccccc] no-underline hover:text-white"
 								>
 									Already invited? Sign in
-									<ArrowRight aria-hidden="true" className="size-3" />
+									<RiArrowRightLine aria-hidden="true" className="size-3" />
 								</button>
 							}
 						/>
@@ -485,9 +491,12 @@ function BetaAccessDialog({
 					>
 						<span className="flex h-full w-full items-center justify-center gap-2 rounded-full bg-[#333] px-6 font-medium text-white shadow-[inset_0_0_24px_rgba(255,186,90,0.08)]">
 							{isLoading ? (
-								<Loader2 aria-hidden="true" className="size-4 animate-spin" />
+								<RiLoader4Line
+									aria-hidden="true"
+									className="size-4 animate-spin"
+								/>
 							) : (
-								<LockKeyhole aria-hidden="true" className="size-4" />
+								<RiLock2Line aria-hidden="true" className="size-4" />
 							)}
 							{isLoading ? "Requesting…" : "Join the beta list"}
 						</span>
@@ -503,7 +512,7 @@ function BetaAccessDialog({
 				>
 					{requestState.status === "success" ? (
 						<span className="inline-flex items-start gap-2 text-amber">
-							<CheckCircle2
+							<RiCheckboxCircleLine
 								aria-hidden="true"
 								className="mt-1 size-4 shrink-0"
 							/>
@@ -529,32 +538,5 @@ function BetaAccessDialog({
 				</div>
 			</div>
 		</DialogContent>
-	);
-}
-
-function CourseLogo({ className }: { className?: string }) {
-	return (
-		<svg
-			className={className}
-			viewBox="0 0 62 62"
-			fill="none"
-			xmlns="http://www.w3.org/2000/svg"
-			aria-label="Agentic Engineering"
-		>
-			<path
-				className="logo-path"
-				d="M23 44V18l22 13-22 13Z"
-				stroke="rgba(255,255,255,0.78)"
-				strokeWidth="1.4"
-				strokeLinejoin="round"
-			/>
-			<path
-				className="logo-path"
-				d="M46 18v26L24 31l22-13Z"
-				stroke="rgba(255,186,90,0.72)"
-				strokeWidth="1.4"
-				strokeLinejoin="round"
-			/>
-		</svg>
 	);
 }

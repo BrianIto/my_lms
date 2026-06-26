@@ -1,11 +1,12 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
 import {
-	ArrowRight,
-	CheckCircle2,
-	Circle,
-	CirclePlay,
-	ListVideo,
-} from "lucide-react";
+	RiArrowRightLine,
+	RiCheckboxCircleLine,
+	RiCircleLine,
+	RiPlayCircleLine,
+	RiPlayList2Line,
+} from "@remixicon/react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { LmsShell } from "#/components/lms-shell.tsx";
 import { Badge } from "#/components/ui/badge.tsx";
 import { Button } from "#/components/ui/button.tsx";
 import {
@@ -19,7 +20,6 @@ import {
 } from "#/components/ui/card.tsx";
 import { Progress } from "#/components/ui/progress.tsx";
 import { Separator } from "#/components/ui/separator.tsx";
-import { LmsShell } from "#/components/lms-shell.tsx";
 import { countLessons, formatDuration, getCourse } from "#/lib/lms-data.ts";
 
 export const Route = createFileRoute("/courses/$slug")({
@@ -30,23 +30,31 @@ function CourseView() {
 	const { slug } = Route.useParams();
 	const course = getCourse(slug);
 	const firstLesson = course.modules[0]?.lessons[0];
+	const nextLesson =
+		course.modules
+			.flatMap((module) => module.lessons)
+			.find((lesson) => lesson.status !== "completed") ?? firstLesson;
 
 	return (
 		<LmsShell
-			eyebrow="Course detail"
+			eyebrow="Course outline"
 			title={course.title}
-			description={course.description}
+			description={`${course.description} Move through the modules in order, then return to the outline whenever you need a clean map of the work.`}
 		>
 			<div className="grid gap-5 lg:grid-cols-[1fr_330px]">
 				<section className="flex flex-col gap-4">
 					{course.modules.map((module, moduleIndex) => (
-						<Card key={module.id} className="border-white/15 bg-background/85">
+						<Card
+							key={module.id}
+							className="rise-in border-white/15 bg-background/85 duration-200 hover:border-white/25"
+						>
 							<CardHeader>
 								<CardTitle className="font-display text-3xl tracking-tighter text-white">
 									{module.title}
 								</CardTitle>
 								<CardDescription>
-									Module {moduleIndex + 1} · {module.lessons.length} lessons
+									Module {moduleIndex + 1} · {module.lessons.length} focused
+									lessons
 								</CardDescription>
 							</CardHeader>
 							<CardContent className="flex flex-col gap-3">
@@ -55,19 +63,22 @@ function CourseView() {
 										key={lesson.id}
 										to="/courses/$slug/lessons/$lessonId"
 										params={{ slug: course.slug, lessonId: lesson.id }}
-										className="group grid gap-3 rounded-lg border border-white/10 bg-white/[0.02] p-4 no-underline duration-200 hover:border-amber/25 md:grid-cols-[1fr_auto] md:items-center"
+										className="group grid gap-3 rounded-lg border border-white/10 bg-white/[0.02] p-4 no-underline duration-200 hover:border-amber/25 hover:shadow-[0_0_16px_rgba(255,186,90,0.05)] md:grid-cols-[1fr_auto] md:items-center"
 									>
 										<div className="flex items-center gap-3">
 											{lesson.status === "completed" ? (
-												<CheckCircle2
-													className="text-amber"
+												<RiCheckboxCircleLine
+													className="size-5 text-amber"
 													aria-hidden="true"
 												/>
 											) : lesson.status === "in_progress" ? (
-												<CirclePlay className="text-amber" aria-hidden="true" />
+												<RiPlayCircleLine
+													className="size-5 text-amber"
+													aria-hidden="true"
+												/>
 											) : (
-												<Circle
-													className="text-muted-foreground"
+												<RiCircleLine
+													className="size-5 text-muted-foreground"
 													aria-hidden="true"
 												/>
 											)}
@@ -76,13 +87,12 @@ function CourseView() {
 													{lesson.title}
 												</span>
 												<span className="text-sm text-muted-foreground">
-													{formatDuration(lesson.durationSeconds)}
+													{formatDuration(lesson.durationSeconds)} ·{" "}
+													{lesson.status.replace("_", " ")}
 												</span>
 											</div>
 										</div>
-										<Badge variant="outline">
-											{lesson.status.replace("_", " ")}
-										</Badge>
+										<Badge variant="outline">Open lesson</Badge>
 									</Link>
 								))}
 							</CardContent>
@@ -97,7 +107,7 @@ function CourseView() {
 								{course.progress}% complete
 							</CardTitle>
 							<CardDescription>
-								Knowledge tracking starts with completed videos.
+								A precise read on what you have already finished.
 							</CardDescription>
 							<CardAction>
 								<Badge>{course.status}</Badge>
@@ -117,13 +127,17 @@ function CourseView() {
 							</div>
 						</CardContent>
 						<CardFooter className="border-t border-white/10">
-							{firstLesson ? (
+							{nextLesson ? (
 								<Button className="w-full" asChild>
 									<Link
 										to="/courses/$slug/lessons/$lessonId"
-										params={{ slug: course.slug, lessonId: firstLesson.id }}
+										params={{ slug: course.slug, lessonId: nextLesson.id }}
 									>
-										Start lesson <ArrowRight data-icon="inline-end" />
+										Continue lesson{" "}
+										<RiArrowRightLine
+											aria-hidden="true"
+											data-icon="inline-end"
+										/>
 									</Link>
 								</Button>
 							) : null}
@@ -133,14 +147,14 @@ function CourseView() {
 					<Card className="border-white/15 bg-background/85">
 						<CardHeader>
 							<CardTitle className="flex items-center gap-2 text-sm uppercase tracking-[0.16em] text-muted-foreground">
-								<ListVideo aria-hidden="true" />
-								Cache boundary
+								<RiPlayList2Line aria-hidden="true" className="size-4" />
+								Course rhythm
 							</CardTitle>
 						</CardHeader>
 						<CardContent className="flex flex-col gap-3 text-sm text-muted-foreground">
-							<p>Course outline is static and cacheable.</p>
+							<p>Work module-by-module; each lesson is intentionally short.</p>
 							<Separator />
-							<p>Progress is fetched separately per authenticated user.</p>
+							<p>Use the outline as your map, not a scoreboard.</p>
 						</CardContent>
 					</Card>
 				</aside>

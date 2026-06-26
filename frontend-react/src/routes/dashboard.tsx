@@ -1,11 +1,12 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
 import {
-	ArrowRight,
-	CheckCircle2,
-	CirclePlay,
-	LockKeyhole,
-	Timer,
-} from "lucide-react";
+	RiArrowRightLine,
+	RiCheckboxCircleLine,
+	RiPlayCircleLine,
+	RiTimeLine,
+	RiWhatsappLine,
+} from "@remixicon/react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { LmsShell } from "#/components/lms-shell.tsx";
 import { Badge } from "#/components/ui/badge.tsx";
 import { Button } from "#/components/ui/button.tsx";
 import {
@@ -18,33 +19,44 @@ import {
 	CardTitle,
 } from "#/components/ui/card.tsx";
 import { Progress } from "#/components/ui/progress.tsx";
-import { LmsShell } from "#/components/lms-shell.tsx";
-import { countLessons, courses } from "#/lib/lms-data.ts";
+import { countLessons, courses, formatDuration } from "#/lib/lms-data.ts";
+import { cn } from "#/utils/cn";
 
 export const Route = createFileRoute("/dashboard")({
 	component: DashboardView,
 });
 
 function DashboardView() {
+	const nextCourse =
+		courses.find((course) => course.progress < 100) ?? courses[0];
+	const nextLesson = nextCourse?.modules
+		.flatMap((module) => module.lessons)
+		.find((lesson) => lesson.status !== "completed");
+
 	return (
 		<LmsShell
-			eyebrow="User dashboard"
-			title="Your course progress, reduced to the next useful lesson."
-			description="Private beta students see cached course structure immediately while their own progress is loaded separately and updated lesson-by-lesson."
+			eyebrow="Learning dashboard"
+			title={
+				<>
+					<span className="text-white/50 ">Your</span> learning cockpit
+				</>
+			}
+			description="A calm cockpit for course progress, next videos, and study momentum — focused on what to watch, review, and complete next."
 		>
-			<div className="grid gap-5 lg:grid-cols-[1fr_340px]">
-				<section className="grid gap-4">
-					{courses.map((course) => (
+			<div className="pointer-events-none absolute inset-y-0 left-0 z-0 w-1/3 border-r border-white/10 bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] bg-[size:24px_24px] opacity-30" />
+			<div className="grid items-start lg:grid-cols-[1fr_340px]">
+				<section className="grid grid-cols-1">
+					{[...courses, ...courses, ...courses].map((course) => (
 						<Card
 							key={course.id}
-							className="group border-white/15 bg-background/85 duration-200 hover:shadow-[0_0_18px_rgba(255,255,255,0.08)]"
+							className="rise-in border-white/15 bg-background/85 border-0 border-l first-of-type:border-t border-r first-of-type:border-r-0 border-b duration-200 hover:border-white/25 hover:shadow-[0_0_18px_rgba(255,255,255,0.08)]"
 						>
 							<CardHeader>
 								<CardTitle className="font-display text-4xl tracking-tighter text-white">
 									{course.title}
 								</CardTitle>
 								<CardDescription className="max-w-[720px] leading-6">
-									{course.description}
+									{course.description}{" "}
 								</CardDescription>
 								<CardAction>
 									<Badge
@@ -57,70 +69,124 @@ function DashboardView() {
 							<CardContent className="flex flex-col gap-4">
 								<div className="grid gap-3 md:grid-cols-3">
 									<MiniStat
-										icon={CirclePlay}
+										icon={RiPlayCircleLine}
 										label="Lessons"
 										value={`${countLessons(course)} videos`}
 									/>
 									<MiniStat
-										icon={Timer}
-										label="Progress"
-										value={`${course.progress}%`}
+										icon={RiTimeLine}
+										label="Rhythm"
+										value="watch, note, complete"
 									/>
 									<MiniStat
-										icon={CheckCircle2}
-										label="Knowledge"
-										value="video completion"
+										icon={RiCheckboxCircleLine}
+										label="Progress"
+										value={`${course.progress}% complete`}
 									/>
 								</div>
 								<Progress value={course.progress} />
 							</CardContent>
 							<CardFooter className="justify-between border-t border-white/10">
 								<span className="text-sm text-muted-foreground">
-									Static content cache key: `courses:detail:{course.id}:v1`
+									Next: open the outline and continue the sequence.
 								</span>
 								<Button asChild>
 									<Link to="/courses/$slug" params={{ slug: course.slug }}>
-										Continue <ArrowRight data-icon="inline-end" />
+										Continue{" "}
+										<RiArrowRightLine
+											aria-hidden="true"
+											data-icon="inline-end"
+										/>
 									</Link>
 								</Button>
 							</CardFooter>
 						</Card>
 					))}
+
+					<Card className="rise-in border-white/15 bg-white/10 border-0 border-l first-of-type:border-t border-r border-b lg:border-r-0  duration-200 hover:border-white/25 hover:shadow-[0_0_18px_rgba(255,255,255,0.08)]">
+						<CardHeader>
+							<CardTitle className="font-display text-4xl tracking-tighter text-white">
+								Want more courses?
+							</CardTitle>
+							<CardDescription className="max-w-[720px]  leading-6">
+								{" "}
+								We are always trying to deliver the best experience to students.
+							</CardDescription>
+						</CardHeader>
+						<CardContent className="flex flex-col gap-3"></CardContent>
+						<CardFooter className="justify-between border-t -mt-1 border-white/10">
+							<span className="text-sm text-muted-foreground">
+								You can always ask for new content contact me by the button.
+							</span>
+
+							<Button asChild variant="outline">
+								<a
+									href="https://wa.me/5592984374357"
+									target="_blank"
+									rel="noopener noreferrer"
+								>
+									Send a WhatsApp{" "}
+									<RiWhatsappLine aria-hidden="true" data-icon="inline-end" />
+								</a>
+							</Button>
+						</CardFooter>
+					</Card>
 				</section>
 
-				<aside className="flex flex-col gap-4">
+				<aside className="flex flex-col ">
 					<Card className="border-amber/20 bg-background/85 shadow-[inset_0_0_24px_rgba(255,186,90,0.06)]">
 						<CardHeader>
 							<CardTitle className="font-display text-3xl tracking-tighter text-white">
-								Beta access active
+								Next study block
 							</CardTitle>
 							<CardDescription>
-								Authenticated through Better Auth and allowlisted for the course
-								beta.
+								Resume with the nearest unfinished lesson and keep the session
+								small.
 							</CardDescription>
 						</CardHeader>
-						<CardContent className="flex flex-col gap-3 text-sm text-muted-foreground">
-							<p>
-								Google sign-in is available, but access remains controlled by
-								the backend beta guard.
-							</p>
-							<div className="rounded-lg border border-white/10 bg-white/[0.02] p-3 text-white">
-								brian@example.com
+						<CardContent className="flex flex-col gap-4 text-sm text-muted-foreground">
+							<div className="rounded-lg border border-white/10 bg-white/[0.02] p-4">
+								<p className="text-xs uppercase tracking-[0.16em] text-amber">
+									Up next
+								</p>
+								<p className="mt-2 font-medium text-white">
+									{nextLesson?.title ?? nextCourse?.title ?? "Course outline"}
+								</p>
+								<p className="mt-1 text-muted-foreground">
+									{nextLesson
+										? formatDuration(nextLesson.durationSeconds)
+										: "Review the full course map."}
+								</p>
 							</div>
+							{nextCourse ? (
+								<Button className="w-full mt-1.25" asChild>
+									<Link to="/courses/$slug" params={{ slug: nextCourse.slug }}>
+										Open course{" "}
+										<RiArrowRightLine
+											aria-hidden="true"
+											data-icon="inline-end"
+										/>
+									</Link>
+								</Button>
+							) : null}
 						</CardContent>
 					</Card>
 
-					<Card className="border-white/15 bg-background/85">
+					<Card
+						className={cn(
+							"border-white/15 bg-background/85 border-0 border-b  border-r",
+						)}
+					>
 						<CardHeader>
 							<CardTitle className="flex items-center gap-2 text-sm uppercase tracking-[0.16em] text-muted-foreground">
-								<LockKeyhole aria-hidden="true" />
-								Access model
+								<RiCheckboxCircleLine aria-hidden="true" className="size-4" />
+								Study rhythm
 							</CardTitle>
 						</CardHeader>
 						<CardContent className="flex flex-col gap-3 text-sm text-muted-foreground">
-							<p>Public preview: marketing/course metadata.</p>
-							<p>Private lessons: session + beta allowlist.</p>
-							<p>Progress: per-user, never stored in global course cache.</p>
+							<p>1. Watch one lesson with a concrete question in mind.</p>
+							<p>2. Capture the tactic you can reuse this week.</p>
+							<p>3. Mark it complete, then choose the next small block.</p>
 						</CardContent>
 					</Card>
 				</aside>
@@ -134,14 +200,14 @@ function MiniStat({
 	label,
 	value,
 }: {
-	icon: typeof CirclePlay;
+	icon: typeof RiPlayCircleLine;
 	label: string;
 	value: string;
 }) {
 	return (
 		<div className="rounded-lg border border-white/10 bg-white/[0.02] p-4">
 			<div className="flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-muted-foreground">
-				<Icon aria-hidden="true" />
+				<Icon aria-hidden="true" className="size-4" />
 				{label}
 			</div>
 			<p className="mt-3 text-sm font-medium text-white">{value}</p>

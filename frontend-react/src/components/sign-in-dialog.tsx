@@ -1,4 +1,4 @@
-import { Chrome, Loader2, Mail } from "lucide-react";
+import { RiGoogleLine, RiLoader4Line, RiMailLine } from "@remixicon/react";
 import { type FormEvent, type ReactNode, useState } from "react";
 import {
 	Dialog,
@@ -142,9 +142,12 @@ export function SignInDialog({
 						>
 							<span className="flex h-full w-full items-center justify-center gap-2 rounded-full bg-[#333] px-6 font-medium text-white shadow-[inset_0_0_24px_rgba(255,186,90,0.08)]">
 								{isLoading ? (
-									<Loader2 aria-hidden="true" className="size-4 animate-spin" />
+									<RiLoader4Line
+										aria-hidden="true"
+										className="size-4 animate-spin"
+									/>
 								) : (
-									<Chrome aria-hidden="true" className="size-4" />
+									<RiGoogleLine aria-hidden="true" className="size-4" />
 								)}
 								Sign in with Google
 							</span>
@@ -203,9 +206,12 @@ export function SignInDialog({
 								className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-white/15 bg-background/75 px-5 font-medium text-white shadow-[inset_0_0_24px_rgba(255,186,90,0.04)] hover:border-white/25 hover:shadow-[0_0_16px_rgba(255,255,255,0.08)] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-60"
 							>
 								{isLoading ? (
-									<Loader2 aria-hidden="true" className="size-4 animate-spin" />
+									<RiLoader4Line
+										aria-hidden="true"
+										className="size-4 animate-spin"
+									/>
 								) : (
-									<Mail aria-hidden="true" className="size-4" />
+									<RiMailLine aria-hidden="true" className="size-4" />
 								)}
 								Continue with email
 							</button>

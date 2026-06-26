@@ -1,5 +1,4 @@
 import { motion } from "motion/react";
-import { Teko } from "next/font/google";
 
 const TextChangeAnimate: React.FC<{ text: string }> = ({ text }) => {
 	return (
@@ -16,9 +15,9 @@ const TextChangeAnimate: React.FC<{ text: string }> = ({ text }) => {
 				opacity: 0,
 				y: 4,
 			}}
-			className="flex-1 px-2 flex justify-center"
+			className="flex flex-1 justify-center px-2"
 		>
-			{text || "Homepage"}
+			{text || "Home"}
 		</motion.div>
 	);
 };

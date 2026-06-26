@@ -1,13 +1,14 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
 import {
-	CheckCircle2,
-	CopyPlus,
-	DatabaseZap,
-	Eye,
-	FileVideo,
-	Plus,
-	UsersRound,
-} from "lucide-react";
+	RiAddLine,
+	type RiCheckboxCircleLine,
+	RiDatabase2Line,
+	RiEyeLine,
+	RiFileCopyLine,
+	RiFileVideoLine,
+	RiUserLine,
+} from "@remixicon/react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { LmsShell } from "#/components/lms-shell.tsx";
 import { Badge } from "#/components/ui/badge.tsx";
 import { Button } from "#/components/ui/button.tsx";
 import {
@@ -32,7 +33,6 @@ import {
 } from "#/components/ui/select.tsx";
 import { Separator } from "#/components/ui/separator.tsx";
 import { Textarea } from "#/components/ui/textarea.tsx";
-import { LmsShell } from "#/components/lms-shell.tsx";
 import { betaUsers, countLessons, courses } from "#/lib/lms-data.ts";
 
 export const Route = createFileRoute("/admin")({ component: AdminView });
@@ -54,19 +54,19 @@ function AdminView() {
 		>
 			<div className="grid gap-4 md:grid-cols-3">
 				<MetricCard
-					icon={FileVideo}
+					icon={RiFileVideoLine}
 					label="Courses"
 					value={String(courses.length)}
 					detail={`${totalLessons} video lessons`}
 				/>
 				<MetricCard
-					icon={UsersRound}
+					icon={RiUserLine}
 					label="Beta users"
 					value={String(activeBetaUsers)}
 					detail="active allowlist entries"
 				/>
 				<MetricCard
-					icon={DatabaseZap}
+					icon={RiDatabase2Line}
 					label="Static cache"
 					value="v1"
 					detail="catalog/detail keys ready"
@@ -137,10 +137,12 @@ function AdminView() {
 						</p>
 						<div className="flex gap-2">
 							<Button variant="outline">
-								<Eye data-icon="inline-start" /> Preview
+								<RiEyeLine aria-hidden="true" data-icon="inline-start" />{" "}
+								Preview
 							</Button>
 							<Button>
-								<Plus data-icon="inline-start" /> Save course
+								<RiAddLine aria-hidden="true" data-icon="inline-start" /> Save
+								course
 							</Button>
 						</div>
 					</CardFooter>
@@ -159,7 +161,8 @@ function AdminView() {
 						<div className="flex gap-2">
 							<Input placeholder="student@example.com" />
 							<Button>
-								<CopyPlus data-icon="inline-start" /> Invite
+								<RiFileCopyLine aria-hidden="true" data-icon="inline-start" />{" "}
+								Invite
 							</Button>
 						</div>
 						<Separator />
@@ -244,7 +247,7 @@ function MetricCard({
 	value,
 	detail,
 }: {
-	icon: typeof CheckCircle2;
+	icon: typeof RiCheckboxCircleLine;
 	label: string;
 	value: string;
 	detail: string;
@@ -253,7 +256,7 @@ function MetricCard({
 		<Card className="border-white/15 bg-background/85">
 			<CardHeader>
 				<CardTitle className="flex items-center gap-2 text-sm uppercase tracking-[0.16em] text-muted-foreground">
-					<Icon aria-hidden="true" />
+					<Icon aria-hidden="true" className="size-4" />
 					{label}
 				</CardTitle>
 			</CardHeader>

@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { RiCloseLine } from "@remixicon/react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import type * as React from "react";
 
@@ -66,7 +66,7 @@ function DialogContent({
 				{children}
 				{showCloseButton && (
 					<DialogPrimitive.Close className="absolute right-4 top-4 z-20 rounded-full border border-white/10 p-1 text-[#999] opacity-80 outline-none hover:border-white/20 hover:text-white focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none">
-						<X className="size-4" />
+						<RiCloseLine aria-hidden="true" className="size-4" />
 						<span className="sr-only">Close</span>
 					</DialogPrimitive.Close>
 				)}
