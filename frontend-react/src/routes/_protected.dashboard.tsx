@@ -5,6 +5,7 @@ import {
 	RiTimeLine,
 	RiWhatsappLine,
 } from "@remixicon/react";
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { LmsShell } from "#/components/lms-shell.tsx";
 import { Badge } from "#/components/ui/badge.tsx";
@@ -19,7 +20,8 @@ import {
 	CardTitle,
 } from "#/components/ui/card.tsx";
 import { Progress } from "#/components/ui/progress.tsx";
-import { countLessons, courses, formatDuration } from "#/lib/lms-data.ts";
+import { type CourseCard, listCourses } from "#/lib/backend-api.ts";
+import { formatDuration } from "#/lib/lms-data.ts";
 import { cn } from "#/utils/cn";
 
 export const Route = createFileRoute("/_protected/dashboard")({
@@ -27,11 +29,13 @@ export const Route = createFileRoute("/_protected/dashboard")({
 });
 
 function DashboardView() {
-	const nextCourse =
-		courses.find((course) => course.progress < 100) ?? courses[0];
-	const nextLesson = nextCourse?.modules
-		.flatMap((module) => module.lessons)
-		.find((lesson) => lesson.status !== "completed");
+	const coursesQuery = useQuery({
+		queryKey: ["courses"],
+		queryFn: listCourses,
+		staleTime: 60 * 60 * 1000,
+	});
+	const courses = coursesQuery.data ?? [];
+	const nextCourse = courses[0];
 
 	return (
 		<LmsShell
@@ -45,74 +49,27 @@ function DashboardView() {
 		>
 			<div className="grid items-start lg:grid-cols-[1fr_340px]">
 				<section className="grid grid-cols-1">
-					{[...courses, ...courses, ...courses].map((course) => (
-						<Card
-							key={course.id}
-							className="rise-in border-white/15 bg-background/85 border-0 border-l first-of-type:border-t border-r first-of-type:border-r-0 border-b duration-200 hover:border-white/25 hover:shadow-[0_0_18px_rgba(255,255,255,0.08)]"
-						>
-							<CardHeader>
-								<CardTitle className="font-display text-4xl tracking-tighter text-white">
-									{course.title}
-								</CardTitle>
-								<CardDescription className="max-w-[720px] leading-6">
-									{course.description}{" "}
-								</CardDescription>
-								<CardAction>
-									<Badge
-										variant={course.status === "draft" ? "outline" : "default"}
-									>
-										{course.status}
-									</Badge>
-								</CardAction>
-							</CardHeader>
-							<CardContent className="flex flex-col gap-4">
-								<div className="grid gap-3 md:grid-cols-3">
-									<MiniStat
-										icon={RiPlayCircleLine}
-										label="Lessons"
-										value={`${countLessons(course)} videos`}
-									/>
-									<MiniStat
-										icon={RiTimeLine}
-										label="Rhythm"
-										value="watch, note, complete"
-									/>
-									<MiniStat
-										icon={RiCheckboxCircleLine}
-										label="Progress"
-										value={`${course.progress}% complete`}
-									/>
-								</div>
-								<Progress value={course.progress} />
-							</CardContent>
-							<CardFooter className="justify-between border-t border-white/10">
-								<span className="text-sm text-muted-foreground">
-									Next: open the outline and continue the sequence.
-								</span>
-								<Button asChild>
-									<Link to="/courses/$slug" params={{ slug: course.slug }}>
-										Continue{" "}
-										<RiArrowRightLine
-											aria-hidden="true"
-											data-icon="inline-end"
-										/>
-									</Link>
-								</Button>
-							</CardFooter>
-						</Card>
-					))}
+					{coursesQuery.isLoading ? (
+						<CourseSkeleton />
+					) : coursesQuery.isError ? (
+						<EmptyCourseCard message="Could not load the course catalog. Confirm the Go backend is running on VITE_BACKEND_URL." />
+					) : courses.length === 0 ? (
+						<EmptyCourseCard message="No published or beta courses are visible yet." />
+					) : (
+						courses.map((course) => (
+							<CourseCardItem key={course.id} course={course} />
+						))
+					)}
 
-					<Card className="rise-in border-white/15 bg-white/10 border-0 border-l first-of-type:border-t border-r border-b lg:border-r-0  duration-200 hover:border-white/25 hover:shadow-[0_0_18px_rgba(255,255,255,0.08)]">
+					<Card className="rise-in border-white/15 bg-white/10 border-0 border-l first-of-type:border-t border-r border-b lg:border-r-0 duration-200 hover:border-white/25 hover:shadow-[0_0_18px_rgba(255,255,255,0.08)]">
 						<CardHeader>
 							<CardTitle className="font-display text-4xl tracking-tighter text-white">
 								Want more courses?
 							</CardTitle>
-							<CardDescription className="max-w-[720px]  leading-6">
-								{" "}
+							<CardDescription className="max-w-[720px] leading-6">
 								We are always trying to deliver the best experience to students.
 							</CardDescription>
 						</CardHeader>
-						<CardContent className="flex flex-col gap-3"></CardContent>
 						<CardFooter className="justify-between border-t -mt-1 border-white/10">
 							<span className="text-sm text-muted-foreground">
 								You can always ask for new content contact me by the button.
@@ -139,7 +96,7 @@ function DashboardView() {
 								Next study block
 							</CardTitle>
 							<CardDescription>
-								Resume with the nearest unfinished lesson and keep the session
+								Resume with the nearest available course and keep the session
 								small.
 							</CardDescription>
 						</CardHeader>
@@ -149,11 +106,11 @@ function DashboardView() {
 									Up next
 								</p>
 								<p className="mt-2 font-medium text-white">
-									{nextLesson?.title ?? nextCourse?.title ?? "Course outline"}
+									{nextCourse?.title ?? "Course outline"}
 								</p>
 								<p className="mt-1 text-muted-foreground">
-									{nextLesson
-										? formatDuration(nextLesson.durationSeconds)
+									{nextCourse
+										? formatDuration(nextCourse.durationSeconds)
 										: "Review the full course map."}
 								</p>
 							</div>
@@ -173,7 +130,7 @@ function DashboardView() {
 
 					<Card
 						className={cn(
-							"border-white/15 bg-background/85 border-0 border-b  border-r",
+							"border-white/15 bg-background/85 border-0 border-b border-r",
 						)}
 					>
 						<CardHeader>
@@ -191,6 +148,90 @@ function DashboardView() {
 				</aside>
 			</div>
 		</LmsShell>
+	);
+}
+
+function CourseCardItem({ course }: { course: CourseCard }) {
+	return (
+		<Card className="rise-in border-white/15 bg-background/85 border-0 border-l first-of-type:border-t border-r first-of-type:border-r-0 border-b duration-200 hover:border-white/25 hover:shadow-[0_0_18px_rgba(255,255,255,0.08)]">
+			<CardHeader>
+				<CardTitle className="font-display text-4xl tracking-tighter text-white">
+					{course.title}
+				</CardTitle>
+				<CardDescription className="max-w-[720px] leading-6">
+					{course.description}
+				</CardDescription>
+				<CardAction>
+					<Badge variant={course.status === "draft" ? "outline" : "default"}>
+						{course.status}
+					</Badge>
+				</CardAction>
+			</CardHeader>
+			<CardContent className="flex flex-col gap-4">
+				<div className="grid gap-3 md:grid-cols-3">
+					<MiniStat
+						icon={RiPlayCircleLine}
+						label="Lessons"
+						value={`${course.lessonCount} videos`}
+					/>
+					<MiniStat
+						icon={RiTimeLine}
+						label="Duration"
+						value={formatDuration(course.durationSeconds)}
+					/>
+					<MiniStat
+						icon={RiCheckboxCircleLine}
+						label="Progress"
+						value={`${course.progress ?? 0}% complete`}
+					/>
+				</div>
+				<Progress value={course.progress ?? 0} />
+			</CardContent>
+			<CardFooter className="justify-between border-t border-white/10">
+				<span className="text-sm text-muted-foreground">
+					Next: open the outline and continue the sequence.
+				</span>
+				<Button asChild>
+					<Link to="/courses/$slug" params={{ slug: course.slug }}>
+						Continue{" "}
+						<RiArrowRightLine aria-hidden="true" data-icon="inline-end" />
+					</Link>
+				</Button>
+			</CardFooter>
+		</Card>
+	);
+}
+
+function CourseSkeleton() {
+	return (
+		<Card className="rise-in border-white/15 bg-background/85 border-0 border-l border-r border-b">
+			<CardHeader>
+				<CardTitle className="font-display text-4xl tracking-tighter text-white/70">
+					Loading catalog…
+				</CardTitle>
+				<CardDescription>
+					Fetching static course cards from the backend cache.
+				</CardDescription>
+			</CardHeader>
+			<CardContent className="grid gap-3 md:grid-cols-3">
+				<MiniStat icon={RiPlayCircleLine} label="Lessons" value="—" />
+				<MiniStat icon={RiTimeLine} label="Duration" value="—" />
+				<MiniStat icon={RiCheckboxCircleLine} label="Progress" value="—" />
+			</CardContent>
+		</Card>
+	);
+}
+
+function EmptyCourseCard({ message }: { message: string }) {
+	return (
+		<Card className="rise-in border-white/15 bg-background/85 border-0 border-l border-r border-b">
+			<CardHeader>
+				<CardTitle className="font-display text-4xl tracking-tighter text-white">
+					Course signal empty
+				</CardTitle>
+				<CardDescription>{message}</CardDescription>
+			</CardHeader>
+		</Card>
 	);
 }
 

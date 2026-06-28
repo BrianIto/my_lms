@@ -24,11 +24,21 @@ type Handler struct {
 	logger           *zap.Logger
 	env              string
 	wsAllowedOrigins []string
+	authServiceURL   string
+	adminWritesOff   bool
 }
 
 // New creates a Handler.
-func New(service *service.Service, hub *ws.Hub, logger *zap.Logger, env, wsAllowedOrigins string) *Handler {
-	return &Handler{service: service, hub: hub, logger: logger, env: env, wsAllowedOrigins: strings.Split(wsAllowedOrigins, ",")}
+func New(service *service.Service, hub *ws.Hub, logger *zap.Logger, env, wsAllowedOrigins, authServiceURL string, adminWritesOff bool) *Handler {
+	return &Handler{
+		service:          service,
+		hub:              hub,
+		logger:           logger,
+		env:              env,
+		wsAllowedOrigins: strings.Split(wsAllowedOrigins, ","),
+		authServiceURL:   strings.TrimRight(authServiceURL, "/"),
+		adminWritesOff:   adminWritesOff,
+	}
 }
 
 // Routes builds the chi router.
@@ -48,6 +58,20 @@ func (h *Handler) Routes() http.Handler {
 		r.Get("/courses/{slug}/progress", h.GetCourseProgress)
 		r.Post("/lessons/{lessonID}/progress", h.UpdateLessonProgress)
 		r.Get("/ws", ws.Serve(h.hub, h.wsAllowedOrigins, h.env == "development", h.logger))
+
+		r.Route("/admin", func(r chi.Router) {
+			r.Use(h.requireAdmin)
+			r.Get("/courses", h.AdminListCourses)
+			r.Post("/courses", h.CreateCourse)
+			r.Patch("/courses/{id}", h.UpdateCourse)
+			r.Delete("/courses/{id}", h.DeleteCourse)
+			r.Post("/courses/{id}/modules", h.CreateModule)
+			r.Delete("/modules/{id}", h.DeleteModule)
+			r.Post("/modules/{id}/lessons", h.CreateLesson)
+			r.Delete("/lessons/{id}", h.DeleteLesson)
+			r.Put("/lessons/{id}/sequence", h.ReplaceLessonSequence)
+			r.Delete("/sequence/{id}", h.DeleteSequencePoint)
+		})
 	})
 	return r
 }
@@ -144,10 +168,10 @@ func (h *Handler) GetAccess(w http.ResponseWriter, r *http.Request) {
 
 // ListCourses godoc
 // @Summary List courses
-// @Description Lists cacheable course catalog data.
+// @Description Lists cacheable, draft-excluded course catalog cards.
 // @Tags courses
 // @Produce json
-// @Success 200 {array} service.Course
+// @Success 200 {array} service.CourseCard
 // @Router /api/v1/courses [get]
 func (h *Handler) ListCourses(w http.ResponseWriter, r *http.Request) {
 	courses, err := h.service.ListCourses(r.Context())
@@ -225,8 +249,9 @@ func (h *Handler) cors(next http.Handler) http.Handler {
 		if origin != "" && h.originAllowed(origin) {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Vary", "Origin")
-			w.Header().Set("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
+			w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PATCH,PUT,DELETE,OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type,Authorization")
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
 		}
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)

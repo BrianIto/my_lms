@@ -209,9 +209,27 @@ log "Auth service uses the same app database/public schema as the Go backend"
 
 if [ "$RUN_MIGRATIONS" -eq 1 ]; then
   log "Applying backend migrations"
+  (cd "$BACKEND_DIR" && docker compose exec -T postgres psql -U app -d app -v ON_ERROR_STOP=1) <<'SQL' >/dev/null
+CREATE TABLE IF NOT EXISTS backend_schema_migrations (
+  version text PRIMARY KEY,
+  applied_at timestamptz NOT NULL DEFAULT now()
+);
+SQL
+
   for migration in "$BACKEND_DIR"/internal/db/migrations/*.up.sql; do
     [ -e "$migration" ] || continue
-    (cd "$BACKEND_DIR" && docker compose exec -T postgres psql -U app -d app -v ON_ERROR_STOP=1) < "$migration" >/dev/null
+    version="$(basename "$migration")"
+    if (cd "$BACKEND_DIR" && docker compose exec -T postgres psql -U app -d app -tAc "SELECT 1 FROM backend_schema_migrations WHERE version = '$version'" | grep -q 1); then
+      log "Skipping backend migration $version"
+      continue
+    fi
+
+    log "Running backend migration $version"
+    {
+      printf 'BEGIN;\n'
+      cat "$migration"
+      printf '\nINSERT INTO backend_schema_migrations (version) VALUES (:'"'migration_version'"');\nCOMMIT;\n'
+    } | (cd "$BACKEND_DIR" && docker compose exec -T postgres psql -U app -d app -v ON_ERROR_STOP=1 -v migration_version="$version") >/dev/null
   done
 
   if [ -d "$AUTH_DIR/node_modules" ]; then
@@ -223,12 +241,23 @@ if [ "$RUN_MIGRATIONS" -eq 1 ]; then
 fi
 
 PIDS=()
+terminate_tree() {
+  local pid="$1"
+  local child
+  for child in $(pgrep -P "$pid" 2>/dev/null || true); do
+    terminate_tree "$child"
+  done
+  kill "$pid" >/dev/null 2>&1 || true
+}
+
 cleanup() {
   local exit_code=$?
   trap - EXIT INT TERM
   if [ "${#PIDS[@]}" -gt 0 ]; then
     warn "Stopping dev services"
-    kill "${PIDS[@]}" >/dev/null 2>&1 || true
+    for pid in "${PIDS[@]}"; do
+      terminate_tree "$pid"
+    done
     wait "${PIDS[@]}" >/dev/null 2>&1 || true
   fi
   exit "$exit_code"
@@ -242,7 +271,7 @@ start() {
   log "Starting $name"
   (
     cd "$dir"
-    "$@"
+    exec "$@"
   ) > >(sed -u "s/^/[$name] /") 2>&1 &
   PIDS+=("$!")
 }

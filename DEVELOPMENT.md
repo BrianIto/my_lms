@@ -36,6 +36,29 @@ curl http://localhost:8080/health
 curl http://localhost:3000/api/auth/ok
 ```
 
+## Backend tests
+
+Fast backend tests must not require Docker/Postgres/Redis:
+
+```bash
+cd backend-go
+make test
+```
+
+The backend also has required real Postgres integration tests for migrations and repository SQL. Run them against an isolated test database only:
+
+```bash
+cd backend-go
+make test-integration
+```
+
+Integration test requirements:
+
+- Use a dedicated test database such as `lms_test`, never a shared dev/staging/production database.
+- Tests run with the `integration` build tag and `BACKEND_INTEGRATION_DATABASE_URL`.
+- The integration harness must create a unique per-run schema, run migrations into it, and drop that schema with `DROP SCHEMA ... CASCADE` when the test process exits, whether tests pass or fail.
+- If a schema-per-run setup is not possible, tests must use equivalent guaranteed cleanup with test-owned records and final cleanup in `TestMain`.
+
 Stop the app processes with `Ctrl+C`. Docker infra is intentionally left running for faster restarts. To remove it:
 
 ```bash
