@@ -19,6 +19,8 @@ type Config struct {
 	OTLPEndpoint     string        `env:"OTEL_EXPORTER_OTLP_ENDPOINT" envDefault:"localhost:4317"`
 	ServiceName      string        `env:"OTEL_SERVICE_NAME" envDefault:"go-server"`
 	WSAllowedOrigins string        `env:"WS_ALLOWED_ORIGINS" envDefault:"http://localhost:3000,http://localhost:5173"`
+	AuthServiceURL   string        `env:"AUTH_SERVICE_URL" envDefault:"http://localhost:3000"`
+	AdminWritesOff   bool          `env:"ADMIN_WRITES_DISABLED" envDefault:"false"`
 }
 
 // Load parses environment variables into Config.

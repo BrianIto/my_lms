@@ -14,6 +14,29 @@ definitions:
         type: integer
       slug:
         type: string
+      sort_order:
+        type: integer
+      status:
+        $ref: '#/definitions/backend-go_internal_service.CourseStatus'
+      title:
+        type: string
+    type: object
+  backend-go_internal_service.CourseCard:
+    properties:
+      description:
+        type: string
+      duration_seconds:
+        type: integer
+      id:
+        type: string
+      lesson_count:
+        type: integer
+      module_count:
+        type: integer
+      slug:
+        type: string
+      sort_order:
+        type: integer
       status:
         $ref: '#/definitions/backend-go_internal_service.CourseStatus'
       title:
@@ -40,12 +63,53 @@ definitions:
     - CourseStatusDraft
     - CourseStatusBeta
     - CourseStatusPublished
+  backend-go_internal_service.CreateCourseInput:
+    properties:
+      description:
+        type: string
+      slug:
+        type: string
+      sort_order:
+        type: integer
+      status:
+        type: string
+      title:
+        type: string
+    type: object
+  backend-go_internal_service.CreateLessonInput:
+    properties:
+      duration_seconds:
+        type: integer
+      lesson_sequence:
+        items:
+          $ref: '#/definitions/backend-go_internal_service.SequencePointInput'
+        type: array
+      sort_order:
+        type: integer
+      title:
+        type: string
+      youtube_embed_url:
+        type: string
+    type: object
+  backend-go_internal_service.CreateModuleInput:
+    properties:
+      sort_order:
+        type: integer
+      title:
+        type: string
+    type: object
   backend-go_internal_service.Lesson:
     properties:
       duration_seconds:
         type: integer
       id:
         type: string
+      lesson_sequence:
+        items:
+          $ref: '#/definitions/backend-go_internal_service.LessonSequencePoint'
+        type: array
+      sort_order:
+        type: integer
       status:
         $ref: '#/definitions/backend-go_internal_service.LessonStatus'
       title:
@@ -57,6 +121,21 @@ definitions:
     properties:
       status:
         $ref: '#/definitions/backend-go_internal_service.LessonStatus'
+    type: object
+  backend-go_internal_service.LessonSequencePoint:
+    properties:
+      description:
+        type: string
+      id:
+        type: string
+      lesson_id:
+        type: string
+      sort_order:
+        type: integer
+      timestamp_seconds:
+        type: integer
+      title:
+        type: string
     type: object
   backend-go_internal_service.LessonStatus:
     enum:
@@ -76,6 +155,37 @@ definitions:
         items:
           $ref: '#/definitions/backend-go_internal_service.Lesson'
         type: array
+      sort_order:
+        type: integer
+      title:
+        type: string
+    type: object
+  backend-go_internal_service.ReplaceSequenceInput:
+    properties:
+      points:
+        items:
+          $ref: '#/definitions/backend-go_internal_service.SequencePointInput'
+        type: array
+    type: object
+  backend-go_internal_service.SequencePointInput:
+    properties:
+      description:
+        type: string
+      sort_order:
+        type: integer
+      timestamp_seconds:
+        type: integer
+      title:
+        type: string
+    type: object
+  backend-go_internal_service.UpdateCourseInput:
+    properties:
+      description:
+        type: string
+      sort_order:
+        type: integer
+      status:
+        type: string
       title:
         type: string
     type: object
@@ -127,6 +237,355 @@ info:
   title: Go Backend Server
   version: "1.0"
 paths:
+  /api/v1/admin/courses:
+    get:
+      description: Lists all courses including drafts for the admin inventory. Bypasses
+        the public list cache.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/backend-go_internal_service.CourseCard'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend-go_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/backend-go_pkg_response.ErrorResponse'
+      summary: List courses (admin)
+      tags:
+      - admin
+    post:
+      consumes:
+      - application/json
+      description: Creates a course. Requires session + admin permission.
+      parameters:
+      - description: Course
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/backend-go_internal_service.CreateCourseInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/backend-go_internal_service.CourseCard'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/backend-go_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend-go_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/backend-go_pkg_response.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/backend-go_pkg_response.ErrorResponse'
+      summary: Create course
+      tags:
+      - admin
+  /api/v1/admin/courses/{id}:
+    delete:
+      description: Deletes a course. Modules, lessons, and lesson bookmarks cascade
+        via database constraints. Requires session + admin permission.
+      parameters:
+      - description: Course ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend-go_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/backend-go_pkg_response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/backend-go_pkg_response.ErrorResponse'
+      summary: Delete course
+      tags:
+      - admin
+    patch:
+      consumes:
+      - application/json
+      description: Partially updates a course's metadata/status. Requires session
+        + admin permission.
+      parameters:
+      - description: Course ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Partial course update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/backend-go_internal_service.UpdateCourseInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/backend-go_internal_service.CourseCard'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/backend-go_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend-go_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/backend-go_pkg_response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/backend-go_pkg_response.ErrorResponse'
+      summary: Update course
+      tags:
+      - admin
+  /api/v1/admin/courses/{id}/modules:
+    post:
+      consumes:
+      - application/json
+      description: Adds a module to a course. Requires session + admin permission.
+      parameters:
+      - description: Course ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Module
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/backend-go_internal_service.CreateModuleInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/backend-go_internal_service.Module'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/backend-go_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend-go_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/backend-go_pkg_response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/backend-go_pkg_response.ErrorResponse'
+      summary: Create module
+      tags:
+      - admin
+  /api/v1/admin/lessons/{id}:
+    delete:
+      description: Deletes a lesson. Lesson bookmarks cascade via database constraints.
+        Requires session + admin permission.
+      parameters:
+      - description: Lesson ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend-go_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/backend-go_pkg_response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/backend-go_pkg_response.ErrorResponse'
+      summary: Delete lesson
+      tags:
+      - admin
+  /api/v1/admin/lessons/{id}/sequence:
+    put:
+      consumes:
+      - application/json
+      description: Replaces all timestamped bookmarks for a lesson in one transaction.
+        Requires session + admin permission.
+      parameters:
+      - description: Lesson ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Sequence points
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/backend-go_internal_service.ReplaceSequenceInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/backend-go_internal_service.LessonSequencePoint'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/backend-go_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend-go_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/backend-go_pkg_response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/backend-go_pkg_response.ErrorResponse'
+      summary: Replace lesson sequence
+      tags:
+      - admin
+  /api/v1/admin/modules/{id}:
+    delete:
+      description: Deletes a module. Lessons and lesson bookmarks cascade via database
+        constraints. Requires session + admin permission.
+      parameters:
+      - description: Module ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend-go_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/backend-go_pkg_response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/backend-go_pkg_response.ErrorResponse'
+      summary: Delete module
+      tags:
+      - admin
+  /api/v1/admin/modules/{id}/lessons:
+    post:
+      consumes:
+      - application/json
+      description: Adds a YouTube lesson (with optional sequence bookmarks) to a module.
+        Requires session + admin permission.
+      parameters:
+      - description: Module ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Lesson
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/backend-go_internal_service.CreateLessonInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/backend-go_internal_service.Lesson'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/backend-go_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend-go_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/backend-go_pkg_response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/backend-go_pkg_response.ErrorResponse'
+      summary: Create lesson
+      tags:
+      - admin
+  /api/v1/admin/sequence/{id}:
+    delete:
+      description: Deletes a single timestamped lesson bookmark without deleting the
+        lesson. Requires session + admin permission.
+      parameters:
+      - description: Sequence point ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/backend-go_pkg_response.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/backend-go_pkg_response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/backend-go_pkg_response.ErrorResponse'
+      summary: Delete lesson sequence point
+      tags:
+      - admin
   /api/v1/beta-access-requests:
     post:
       consumes:
@@ -160,7 +619,7 @@ paths:
       - access
   /api/v1/courses:
     get:
-      description: Lists cacheable course catalog data.
+      description: Lists cacheable, draft-excluded course catalog cards.
       produces:
       - application/json
       responses:
@@ -168,7 +627,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/backend-go_internal_service.Course'
+              $ref: '#/definitions/backend-go_internal_service.CourseCard'
             type: array
       summary: List courses
       tags:

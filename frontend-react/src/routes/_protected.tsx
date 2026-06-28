@@ -1,5 +1,4 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
-import DynamicIsland from "#/components/storybook/DynamicIsland";
 import { getServerAuthState } from "#/lib/auth-session.ts";
 
 export const Route = createFileRoute("/_protected")({
@@ -14,10 +13,5 @@ export const Route = createFileRoute("/_protected")({
 });
 
 function ProtectedLayout() {
-	return (
-		<>
-			<DynamicIsland />
-			<Outlet />
-		</>
-	);
+	return <Outlet />;
 }

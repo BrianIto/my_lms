@@ -1,102 +1,53 @@
-export type CourseStatus = "draft" | "beta" | "published";
-export type LessonStatus = "not_started" | "in_progress" | "completed";
+import type { Course, CourseCard, Lesson } from "#/lib/backend-api.ts";
 
-export type Lesson = {
-	id: string;
-	title: string;
-	youtubeEmbedUrl: string;
-	durationSeconds: number;
-	status: LessonStatus;
-};
-
-export type Module = {
-	id: string;
-	title: string;
-	lessons: Lesson[];
-};
-
-export type Course = {
-	id: string;
-	slug: string;
-	title: string;
-	description: string;
-	status: CourseStatus;
-	progress: number;
-	modules: Module[];
-};
-
-export const courses: Course[] = [
-	{
-		id: "course_ai_products",
-		slug: "building-with-ai",
-		title: "Building with AI",
-		description:
-			"A precise course on turning model capabilities into durable product workflows, shipped in small useful increments.",
-		status: "beta",
-		progress: 42,
-		modules: [
-			{
-				id: "mod_01",
-				title: "Orientation",
-				lessons: [
-					{
-						id: "lesson_welcome",
-						title: "Welcome and operating principles",
-						youtubeEmbedUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
-						durationSeconds: 420,
-						status: "completed",
-					},
-					{
-						id: "lesson_stack",
-						title: "Course stack and project constraints",
-						youtubeEmbedUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
-						durationSeconds: 690,
-						status: "completed",
-					},
-				],
-			},
-			{
-				id: "mod_02",
-				title: "Designing the learning loop",
-				lessons: [
-					{
-						id: "lesson_loop",
-						title: "From passive video to tracked knowledge",
-						youtubeEmbedUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
-						durationSeconds: 840,
-						status: "in_progress",
-					},
-					{
-						id: "lesson_cache",
-						title: "Caching static content without leaking progress",
-						youtubeEmbedUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
-						durationSeconds: 780,
-						status: "not_started",
-					},
-				],
-			},
-		],
-	},
-];
-
-export function getCourse(slug: string) {
-	return courses.find((course) => course.slug === slug) ?? courses[0];
-}
-
-export function getLesson(slug: string, lessonId: string) {
-	const course = getCourse(slug);
-	const lessons = course.modules.flatMap((module) => module.lessons);
-	return lessons.find((lesson) => lesson.id === lessonId) ?? lessons[0];
-}
+export type {
+	Course,
+	CourseCard,
+	Lesson,
+	LessonStatus,
+	Module,
+} from "#/lib/backend-api.ts";
 
 export function formatDuration(seconds: number) {
 	const minutes = Math.round(seconds / 60);
 	return `${minutes} min`;
 }
 
-export function countLessons(course: Course) {
+export function formatTimestamp(seconds: number) {
+	const wholeSeconds = Math.max(0, Math.floor(seconds));
+	const minutes = Math.floor(wholeSeconds / 60);
+	const remainingSeconds = wholeSeconds % 60;
+	return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
+}
+
+export function countLessons(course: Pick<Course, "modules">) {
 	return course.modules.reduce(
 		(total, module) => total + module.lessons.length,
 		0,
+	);
+}
+
+export function countCardLessons(course: Pick<CourseCard, "lessonCount">) {
+	return course.lessonCount;
+}
+
+export function findLesson(
+	course: Course,
+	lessonId: string,
+): Lesson | undefined {
+	return course.modules
+		.flatMap((module) => module.lessons)
+		.find((lesson) => lesson.id === lessonId);
+}
+
+export function getFirstLesson(course: Course): Lesson | undefined {
+	return course.modules[0]?.lessons[0];
+}
+
+export function getNextLesson(course: Course): Lesson | undefined {
+	return (
+		course.modules
+			.flatMap((module) => module.lessons)
+			.find((lesson) => lesson.status !== "completed") ?? getFirstLesson(course)
 	);
 }
