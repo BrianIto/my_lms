@@ -1,0 +1,17 @@
+# Optional Traefik file-provider config.
+# The production Compose also defines these middlewares with Docker labels, so this file
+# is only needed if your existing Traefik instance loads deploy/traefik/dynamic.yml.
+
+http:
+  middlewares:
+    lms-compress:
+      compress: {}
+
+    lms-secure-headers:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        contentTypeNosniff: true
+        referrerPolicy: strict-origin-when-cross-origin
+        permissionsPolicy: "camera=(), microphone=(), geolocation=()"

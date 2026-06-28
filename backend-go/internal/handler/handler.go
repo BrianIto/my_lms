@@ -7,6 +7,10 @@ import (
 	"backend-go/internal/ws"
 	"backend-go/pkg/response"
 	"encoding/json"
+	"os"
+	"path/filepath"
+	"runtime"
+
 	scalar "github.com/MarceloPetrucio/go-scalar-api-reference"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -26,6 +30,7 @@ type Handler struct {
 	wsAllowedOrigins []string
 	authServiceURL   string
 	adminWritesOff   bool
+	scalarSpecPath   string
 }
 
 // New creates a Handler.
@@ -38,6 +43,7 @@ func New(service *service.Service, hub *ws.Hub, logger *zap.Logger, env, wsAllow
 		wsAllowedOrigins: strings.Split(wsAllowedOrigins, ","),
 		authServiceURL:   strings.TrimRight(authServiceURL, "/"),
 		adminWritesOff:   adminWritesOff,
+		scalarSpecPath:   defaultScalarSpecPath(),
 	}
 }
 
@@ -55,8 +61,11 @@ func (h *Handler) Routes() http.Handler {
 		r.Get("/me/access", h.GetAccess)
 		r.Get("/courses", h.ListCourses)
 		r.Get("/courses/{slug}", h.GetCourse)
-		r.Get("/courses/{slug}/progress", h.GetCourseProgress)
-		r.Post("/lessons/{lessonID}/progress", h.UpdateLessonProgress)
+		r.Group(func(r chi.Router) {
+			r.Use(h.requireBetaUser)
+			r.Get("/courses/{slug}/progress", h.GetCourseProgress)
+			r.Post("/lessons/{lessonID}/progress", h.UpdateLessonProgress)
+		})
 		r.Get("/ws", ws.Serve(h.hub, h.wsAllowedOrigins, h.env == "development", h.logger))
 
 		r.Route("/admin", func(r chi.Router) {
@@ -106,13 +115,34 @@ func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
 
 // Scalar godoc
 func (h *Handler) Scalar(w http.ResponseWriter, r *http.Request) {
-	html, err := scalar.ApiReferenceHTML(&scalar.Options{SpecContent: docs.SwaggerInfo.ReadDoc(), CustomOptions: scalar.CustomOptions{PageTitle: "Go Server API"}})
+	specContent, err := h.scalarSpecContent()
+	if err != nil {
+		h.logger.Warn("scalar spec file unavailable; falling back to embedded generated docs", zap.Error(err))
+		specContent = docs.SwaggerInfo.ReadDoc()
+	}
+	html, err := scalar.ApiReferenceHTML(&scalar.Options{SpecContent: specContent, CustomOptions: scalar.CustomOptions{PageTitle: "Go Server API"}})
 	if err != nil {
 		response.Error(w, http.StatusInternalServerError, "render scalar")
 		return
 	}
 	w.Header().Set("Content-Type", "text/html")
 	_, _ = w.Write([]byte(html))
+}
+
+func (h *Handler) scalarSpecContent() (string, error) {
+	content, err := os.ReadFile(h.scalarSpecPath)
+	if err != nil {
+		return "", err
+	}
+	return string(content), nil
+}
+
+func defaultScalarSpecPath() string {
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		return filepath.Join("docs", "swagger.yaml")
+	}
+	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", "docs", "swagger.yaml"))
 }
 
 // CreateBetaAccessRequest godoc
@@ -157,13 +187,26 @@ type AccessResponse struct {
 
 // GetAccess godoc
 // @Summary Get current access state
-// @Description Returns session/beta access state for the current user. This is a development placeholder until Better Auth session validation is wired.
+// @Description Returns session/beta access state for the current user by validating Better Auth through auth_service.
 // @Tags access
 // @Produce json
 // @Success 200 {object} AccessResponse
 // @Router /api/v1/me/access [get]
 func (h *Handler) GetAccess(w http.ResponseWriter, r *http.Request) {
-	response.JSON(w, http.StatusOK, AccessResponse{Authenticated: true, BetaAccess: true, Status: "active"})
+	if _, _, err := h.currentSessionUser(r); err != nil {
+		response.JSON(w, http.StatusOK, AccessResponse{Authenticated: false, BetaAccess: false, Status: "anonymous"})
+		return
+	}
+	active, _, err := h.hasActiveBetaAccess(r)
+	if err != nil {
+		response.JSON(w, http.StatusOK, AccessResponse{Authenticated: true, BetaAccess: false, Status: "unknown"})
+		return
+	}
+	status := "invited"
+	if active {
+		status = "active"
+	}
+	response.JSON(w, http.StatusOK, AccessResponse{Authenticated: true, BetaAccess: active, Status: status})
 }
 
 // ListCourses godoc
@@ -202,17 +245,24 @@ func (h *Handler) GetCourse(w http.ResponseWriter, r *http.Request) {
 
 // GetCourseProgress godoc
 // @Summary Get course progress
-// @Description Gets per-user course progress. Development placeholder uses seeded progress.
+// @Description Gets authenticated per-user course progress, including lesson statuses.
 // @Tags progress
 // @Produce json
 // @Param slug path string true "Course slug"
 // @Success 200 {object} service.CourseProgress
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
 // @Failure 404 {object} response.ErrorResponse
 // @Router /api/v1/courses/{slug}/progress [get]
 func (h *Handler) GetCourseProgress(w http.ResponseWriter, r *http.Request) {
-	progress, err := h.service.GetCourseProgress(r.Context(), chi.URLParam(r, "slug"))
+	user, ok := userFromContext(r.Context())
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, "authentication required")
+		return
+	}
+	progress, err := h.service.GetCourseProgress(r.Context(), user.ID, chi.URLParam(r, "slug"))
 	if err != nil {
-		response.Error(w, http.StatusNotFound, "course not found")
+		writeServiceError(w, err, "get course progress")
 		return
 	}
 	response.JSON(w, http.StatusOK, progress)
@@ -220,24 +270,32 @@ func (h *Handler) GetCourseProgress(w http.ResponseWriter, r *http.Request) {
 
 // UpdateLessonProgress godoc
 // @Summary Update lesson progress
-// @Description Idempotently updates lesson progress for the authenticated user. Development placeholder echoes the normalized status.
+// @Description Idempotently updates lesson progress for the authenticated beta user.
 // @Tags progress
 // @Accept json
 // @Produce json
 // @Param lessonID path string true "Lesson ID"
 // @Param body body service.LessonProgressUpdate true "Progress payload"
-// @Success 200 {object} service.LessonProgressUpdate
+// @Success 200 {object} service.LessonProgress
 // @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
 // @Router /api/v1/lessons/{lessonID}/progress [post]
 func (h *Handler) UpdateLessonProgress(w http.ResponseWriter, r *http.Request) {
+	user, ok := userFromContext(r.Context())
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, "authentication required")
+		return
+	}
 	var req service.LessonProgressUpdate
 	if err := jsonNewDecoder(r).Decode(&req); err != nil {
 		response.Error(w, http.StatusBadRequest, "invalid json")
 		return
 	}
-	progress, err := h.service.UpdateLessonProgress(r.Context(), chi.URLParam(r, "lessonID"), req)
+	progress, err := h.service.UpdateLessonProgress(r.Context(), user.ID, chi.URLParam(r, "lessonID"), req)
 	if err != nil {
-		response.Error(w, http.StatusBadRequest, "update lesson progress")
+		writeServiceError(w, err, "update lesson progress")
 		return
 	}
 	response.JSON(w, http.StatusOK, progress)

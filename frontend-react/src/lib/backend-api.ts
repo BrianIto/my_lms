@@ -161,11 +161,19 @@ export type CourseCard = Omit<Course, "modules"> & {
 	durationSeconds: number;
 };
 
+export type LessonProgress = {
+	lessonId: string;
+	status: LessonStatus;
+	lastPositionSeconds?: number;
+	completedAt?: string;
+};
+
 export type CourseProgress = {
 	courseSlug: string;
 	completedLessons: number;
 	totalLessons: number;
 	percent: number;
+	lessons: LessonProgress[];
 };
 
 type RawCourseCard = {
@@ -217,11 +225,19 @@ type RawLessonSequencePoint = {
 	sort_order: number;
 };
 
+type RawLessonProgress = {
+	lesson_id: string;
+	status: LessonStatus;
+	last_position_seconds?: number;
+	completed_at?: string;
+};
+
 type RawCourseProgress = {
 	course_slug: string;
 	completed_lessons: number;
 	total_lessons: number;
 	percent: number;
+	lessons?: RawLessonProgress[];
 };
 
 function mapPoint(point: RawLessonSequencePoint): LessonSequencePoint {
@@ -284,12 +300,22 @@ function mapCourseCard(course: RawCourseCard): CourseCard {
 	};
 }
 
+function mapLessonProgress(progress: RawLessonProgress): LessonProgress {
+	return {
+		lessonId: progress.lesson_id,
+		status: progress.status,
+		lastPositionSeconds: progress.last_position_seconds,
+		completedAt: progress.completed_at,
+	};
+}
+
 function mapProgress(progress: RawCourseProgress): CourseProgress {
 	return {
 		courseSlug: progress.course_slug,
 		completedLessons: progress.completed_lessons,
 		totalLessons: progress.total_lessons,
 		percent: progress.percent,
+		lessons: (progress.lessons ?? []).map(mapLessonProgress),
 	};
 }
 
@@ -331,11 +357,19 @@ export async function getCourseProgress(slug: string): Promise<CourseProgress> {
 export async function updateLessonProgress(input: {
 	lessonId: string;
 	status?: LessonStatus;
-}): Promise<{ status: LessonStatus }> {
-	return apiFetch(`/api/v1/lessons/${input.lessonId}/progress`, {
-		method: "POST",
-		body: JSON.stringify({ status: input.status }),
-	});
+	lastPositionSeconds?: number;
+}): Promise<LessonProgress> {
+	const payload = await apiFetch<RawLessonProgress>(
+		`/api/v1/lessons/${input.lessonId}/progress`,
+		{
+			method: "POST",
+			body: JSON.stringify({
+				status: input.status,
+				last_position_seconds: input.lastPositionSeconds,
+			}),
+		},
+	);
+	return mapLessonProgress(payload);
 }
 
 export async function listAdminCourses(): Promise<CourseCard[]> {

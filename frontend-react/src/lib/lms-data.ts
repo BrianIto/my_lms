@@ -1,4 +1,9 @@
-import type { Course, CourseCard, Lesson } from "#/lib/backend-api.ts";
+import type {
+	Course,
+	CourseCard,
+	CourseProgress,
+	Lesson,
+} from "#/lib/backend-api.ts";
 
 export type {
 	Course,
@@ -42,6 +47,29 @@ export function findLesson(
 
 export function getFirstLesson(course: Course): Lesson | undefined {
 	return course.modules[0]?.lessons[0];
+}
+
+export function mergeCourseProgress(
+	course: Course,
+	progress: CourseProgress | undefined,
+): Course {
+	if (!progress) {
+		return course;
+	}
+	const statusByLesson = new Map(
+		progress.lessons.map((lesson) => [lesson.lessonId, lesson.status]),
+	);
+	return {
+		...course,
+		progress: progress.percent,
+		modules: course.modules.map((module) => ({
+			...module,
+			lessons: module.lessons.map((lesson) => ({
+				...lesson,
+				status: statusByLesson.get(lesson.id) ?? "not_started",
+			})),
+		})),
+	};
 }
 
 export function getNextLesson(course: Course): Lesson | undefined {

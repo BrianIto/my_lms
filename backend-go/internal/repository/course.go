@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -55,6 +56,14 @@ type LessonSequencePointRow struct {
 	SortOrder        int    `json:"sort_order"`
 }
 
+// LessonProgressRow is a persisted per-user lesson progress record, joined against course lessons when reading progress.
+type LessonProgressRow struct {
+	LessonID            string     `json:"lesson_id"`
+	Status              string     `json:"status"`
+	LastPositionSeconds *int       `json:"last_position_seconds,omitempty"`
+	CompletedAt         *time.Time `json:"completed_at,omitempty"`
+}
+
 // CreateCourseParams holds inputs for creating a course.
 type CreateCourseParams struct {
 	Slug        string
@@ -94,6 +103,14 @@ type SequencePointParams struct {
 	Description      string
 	TimestampSeconds int
 	SortOrder        int
+}
+
+// UpsertLessonProgressParams holds inputs for an idempotent progress write.
+type UpsertLessonProgressParams struct {
+	UserID              string
+	LessonID            string
+	Status              string
+	LastPositionSeconds *int
 }
 
 func isUniqueViolation(err error) bool {
@@ -398,6 +415,61 @@ func (q *Queries) GetLessonByID(ctx context.Context, id string) (LessonRow, erro
 		return LessonRow{}, fmt.Errorf("get lesson: %w", err)
 	}
 	return l, nil
+}
+
+// ListLessonProgressByCourse returns one row per lesson in a course with persisted user status or not_started.
+func (q *Queries) ListLessonProgressByCourse(ctx context.Context, courseID, userID string) ([]LessonProgressRow, error) {
+	rows, err := q.db.Query(ctx, `
+		SELECT l.id::text,
+			COALESCE(lp.status, 'not_started') AS status,
+			lp.last_position_seconds,
+			lp.completed_at
+		FROM lessons l
+		JOIN modules m ON m.id = l.module_id
+		LEFT JOIN lesson_progress lp ON lp.lesson_id = l.id AND lp.user_id = $2
+		WHERE m.course_id = $1::uuid
+		ORDER BY m.sort_order, l.sort_order, l.created_at
+	`, courseID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list lesson progress: %w", err)
+	}
+	defer rows.Close()
+
+	var progress []LessonProgressRow
+	for rows.Next() {
+		var row LessonProgressRow
+		if err := rows.Scan(&row.LessonID, &row.Status, &row.LastPositionSeconds, &row.CompletedAt); err != nil {
+			return nil, fmt.Errorf("scan lesson progress: %w", err)
+		}
+		progress = append(progress, row)
+	}
+	return progress, rows.Err()
+}
+
+// UpsertLessonProgress inserts or updates a per-user lesson progress row idempotently.
+func (q *Queries) UpsertLessonProgress(ctx context.Context, params UpsertLessonProgressParams) (LessonProgressRow, error) {
+	var row LessonProgressRow
+	err := q.db.QueryRow(ctx, `
+		INSERT INTO lesson_progress (user_id, lesson_id, status, last_position_seconds, completed_at)
+		VALUES ($1, $2::uuid, $3, $4, CASE WHEN $3 = 'completed' THEN now() ELSE NULL END)
+		ON CONFLICT (user_id, lesson_id) DO UPDATE SET
+			status = EXCLUDED.status,
+			last_position_seconds = COALESCE(EXCLUDED.last_position_seconds, lesson_progress.last_position_seconds),
+			completed_at = CASE
+				WHEN EXCLUDED.status = 'completed' THEN COALESCE(lesson_progress.completed_at, now())
+				ELSE NULL
+			END,
+			updated_at = now()
+		RETURNING lesson_id::text, status, last_position_seconds, completed_at
+	`, params.UserID, params.LessonID, params.Status, params.LastPositionSeconds).
+		Scan(&row.LessonID, &row.Status, &row.LastPositionSeconds, &row.CompletedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return LessonProgressRow{}, ErrNotFound
+	}
+	if err != nil {
+		return LessonProgressRow{}, fmt.Errorf("upsert lesson progress: %w", err)
+	}
+	return row, nil
 }
 
 // CourseSlugByModuleID resolves the parent course slug for a module, for cache invalidation.

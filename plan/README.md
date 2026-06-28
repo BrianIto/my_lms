@@ -10,6 +10,7 @@ Use these plan files by work area instead of one large plan. Start with this ind
 - [`03-progress-and-player.md`](./03-progress-and-player.md) — lesson player, progress schema, percentage completion, progress APIs.
 - [`04-frontend-design.md`](./04-frontend-design.md) — LMS screens and UI implementation following `../design.md`.
 - [`05-admin-and-production.md`](./05-admin-and-production.md) — course authoring MVP, tests, observability, deployment hardening.
+- [`06-production-deploy.md`](./06-production-deploy.md) — Traefik/Docker Compose VPS deploy, Vercel frontend, domains, migrations, and OpenTelemetry/Grafana plan.
 
 ## Suggested order
 
@@ -19,6 +20,7 @@ Use these plan files by work area instead of one large plan. Start with this ind
 4. Lesson player and progress
 5. Frontend design polish
 6. Admin/course authoring and production hardening
+7. Production deploy
 
 ## Cross-cutting rules
 

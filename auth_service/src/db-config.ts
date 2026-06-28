@@ -3,7 +3,7 @@ import type pg from "pg";
 const POSTGRES_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 export function normalizeDatabaseSchema(value: string | undefined) {
-  const schema = (value ?? "app").trim();
+  const schema = (value ?? "public").trim();
   if (!schema) {
     throw new Error("DATABASE_SCHEMA must not be empty");
   }

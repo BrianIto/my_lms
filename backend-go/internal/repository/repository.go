@@ -46,6 +46,8 @@ type Querier interface {
 	CreateLesson(context.Context, CreateLessonParams, []SequencePointParams) (LessonRow, []LessonSequencePointRow, error)
 	ReplaceLessonSequence(context.Context, string, []SequencePointParams) ([]LessonSequencePointRow, error)
 	GetLessonByID(context.Context, string) (LessonRow, error)
+	ListLessonProgressByCourse(context.Context, string, string) ([]LessonProgressRow, error)
+	UpsertLessonProgress(context.Context, UpsertLessonProgressParams) (LessonProgressRow, error)
 	CourseSlugByModuleID(context.Context, string) (string, error)
 	CourseSlugByLessonID(context.Context, string) (string, error)
 	CourseSlugBySequencePointID(context.Context, string) (string, error)

@@ -56,6 +56,8 @@ type fakeRepo struct {
 	lessonsByCourse   map[string][]repository.LessonRow
 	sequenceByCourse  map[string][]repository.LessonSequencePointRow
 	lessonsByID       map[string]repository.LessonRow
+	progressByCourse  map[string][]repository.LessonProgressRow
+	progressByLesson  map[string]repository.LessonProgressRow
 	slugByModuleID    map[string]string
 	slugByLessonID    map[string]string
 	slugByPointID     map[string]string
@@ -82,7 +84,7 @@ type fakeRepo struct {
 }
 
 func newFakeRepo() *fakeRepo {
-	return &fakeRepo{coursesBySlug: map[string]repository.CourseRow{}, coursesByID: map[string]repository.CourseRow{}, modulesByCourse: map[string][]repository.ModuleRow{}, lessonsByCourse: map[string][]repository.LessonRow{}, sequenceByCourse: map[string][]repository.LessonSequencePointRow{}, lessonsByID: map[string]repository.LessonRow{}, slugByModuleID: map[string]string{}, slugByLessonID: map[string]string{}, slugByPointID: map[string]string{}}
+	return &fakeRepo{coursesBySlug: map[string]repository.CourseRow{}, coursesByID: map[string]repository.CourseRow{}, modulesByCourse: map[string][]repository.ModuleRow{}, lessonsByCourse: map[string][]repository.LessonRow{}, sequenceByCourse: map[string][]repository.LessonSequencePointRow{}, lessonsByID: map[string]repository.LessonRow{}, progressByCourse: map[string][]repository.LessonProgressRow{}, progressByLesson: map[string]repository.LessonProgressRow{}, slugByModuleID: map[string]string{}, slugByLessonID: map[string]string{}, slugByPointID: map[string]string{}}
 }
 
 func (r *fakeRepo) CreateBetaAccessRequest(context.Context, string) (repository.BetaAccessRequest, error) {
@@ -208,6 +210,26 @@ func (r *fakeRepo) GetLessonByID(_ context.Context, id string) (repository.Lesso
 		return repository.LessonRow{}, repository.ErrNotFound
 	}
 	return l, nil
+}
+func (r *fakeRepo) ListLessonProgressByCourse(_ context.Context, courseID, _ string) ([]repository.LessonProgressRow, error) {
+	if rows, ok := r.progressByCourse[courseID]; ok {
+		return rows, nil
+	}
+	lessons := r.lessonsByCourse[courseID]
+	rows := make([]repository.LessonProgressRow, 0, len(lessons))
+	for _, lesson := range lessons {
+		row := repository.LessonProgressRow{LessonID: lesson.ID, Status: "not_started"}
+		if saved, ok := r.progressByLesson[lesson.ID]; ok {
+			row = saved
+		}
+		rows = append(rows, row)
+	}
+	return rows, nil
+}
+func (r *fakeRepo) UpsertLessonProgress(_ context.Context, p repository.UpsertLessonProgressParams) (repository.LessonProgressRow, error) {
+	row := repository.LessonProgressRow{LessonID: p.LessonID, Status: p.Status, LastPositionSeconds: p.LastPositionSeconds}
+	r.progressByLesson[p.LessonID] = row
+	return row, nil
 }
 func (r *fakeRepo) CourseSlugByModuleID(_ context.Context, id string) (string, error) {
 	s, ok := r.slugByModuleID[id]
@@ -471,28 +493,44 @@ func TestDeleteCatalogInvalidatesExpectedCaches(t *testing.T) {
 	}
 }
 
-func TestProgressPlaceholders(t *testing.T) {
+func TestPersistedCourseProgress(t *testing.T) {
 	repo := newFakeRepo()
 	cache := newFakeCache()
 	repo.coursesBySlug["building-with-ai"] = repository.CourseRow{ID: "c1", Slug: "building-with-ai", Status: "beta"}
-	repo.modulesByCourse["c1"] = []repository.ModuleRow{{ID: "m1"}}
 	repo.lessonsByCourse["c1"] = []repository.LessonRow{{ID: "l1", ModuleID: "m1"}, {ID: "l2", ModuleID: "m1"}}
+	repo.progressByCourse["c1"] = []repository.LessonProgressRow{{LessonID: "l1", Status: "completed"}, {LessonID: "l2", Status: "in_progress"}}
 	svc := New(repo, cache)
-	progress, err := svc.GetCourseProgress(context.Background(), "building-with-ai")
+	progress, err := svc.GetCourseProgress(context.Background(), "user-1", "building-with-ai")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if progress.TotalLessons != 2 || progress.CompletedLessons != 0 || progress.Percent != 0 {
+	if progress.TotalLessons != 2 || progress.CompletedLessons != 1 || progress.Percent != 50 || len(progress.Lessons) != 2 {
 		t.Fatalf("progress = %#v", progress)
 	}
-	if _, err := svc.GetCourseProgress(context.Background(), "missing"); !errors.Is(err, ErrNotFound) {
+	if _, err := svc.GetCourseProgress(context.Background(), "user-1", "missing"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("missing progress err = %v", err)
 	}
-	update, err := svc.UpdateLessonProgress(context.Background(), "lesson", LessonProgressUpdate{})
+	progress, err = svc.GetCourseProgress(context.Background(), "user-1", "building-with-ai")
+	if err != nil || progress.Percent != 50 {
+		t.Fatalf("repeat progress = %#v, %v", progress, err)
+	}
+}
+
+func TestUpdateLessonProgressValidationAndDefaults(t *testing.T) {
+	repo := newFakeRepo()
+	svc := New(repo, newFakeCache())
+	if _, err := svc.UpdateLessonProgress(context.Background(), "user-1", "", LessonProgressUpdate{}); err == nil {
+		t.Fatal("empty lesson id should fail")
+	}
+	if _, err := svc.UpdateLessonProgress(context.Background(), "user-1", "missing", LessonProgressUpdate{}); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("missing lesson err = %v", err)
+	}
+	repo.lessonsByID["lesson"] = repository.LessonRow{ID: "lesson"}
+	update, err := svc.UpdateLessonProgress(context.Background(), "user-1", "lesson", LessonProgressUpdate{})
 	if err != nil || update.Status != LessonStatusCompleted {
 		t.Fatalf("update = %#v, %v", update, err)
 	}
-	if _, err := svc.UpdateLessonProgress(context.Background(), "", LessonProgressUpdate{}); err == nil {
-		t.Fatal("empty lesson id should fail")
+	if _, err := svc.UpdateLessonProgress(context.Background(), "user-1", "lesson", LessonProgressUpdate{Status: "bad"}); err == nil {
+		t.Fatal("invalid status should fail")
 	}
 }

@@ -5,7 +5,7 @@ import {
 	RiTimeLine,
 	RiWhatsappLine,
 } from "@remixicon/react";
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { LmsShell } from "#/components/lms-shell.tsx";
 import { Badge } from "#/components/ui/badge.tsx";
@@ -20,7 +20,11 @@ import {
 	CardTitle,
 } from "#/components/ui/card.tsx";
 import { Progress } from "#/components/ui/progress.tsx";
-import { type CourseCard, listCourses } from "#/lib/backend-api.ts";
+import {
+	type CourseCard,
+	getCourseProgress,
+	listCourses,
+} from "#/lib/backend-api.ts";
 import { formatDuration } from "#/lib/lms-data.ts";
 import { cn } from "#/utils/cn";
 
@@ -35,7 +39,25 @@ function DashboardView() {
 		staleTime: 60 * 60 * 1000,
 	});
 	const courses = coursesQuery.data ?? [];
-	const nextCourse = courses[0];
+	const progressQueries = useQueries({
+		queries: courses.map((course) => ({
+			queryKey: ["courses", course.slug, "progress"],
+			queryFn: () => getCourseProgress(course.slug),
+			staleTime: 30 * 1000,
+			enabled: courses.length > 0,
+		})),
+	});
+	const progressBySlug = new Map(
+		progressQueries
+			.map((query) => query.data)
+			.filter((progress) => Boolean(progress))
+			.map((progress) => [progress.courseSlug, progress.percent]),
+	);
+	const coursesWithProgress = courses.map((course) => ({
+		...course,
+		progress: progressBySlug.get(course.slug) ?? course.progress ?? 0,
+	}));
+	const nextCourse = coursesWithProgress[0];
 
 	return (
 		<LmsShell
@@ -53,10 +75,10 @@ function DashboardView() {
 						<CourseSkeleton />
 					) : coursesQuery.isError ? (
 						<EmptyCourseCard message="Could not load the course catalog. Confirm the Go backend is running on VITE_BACKEND_URL." />
-					) : courses.length === 0 ? (
+					) : coursesWithProgress.length === 0 ? (
 						<EmptyCourseCard message="No published or beta courses are visible yet." />
 					) : (
-						courses.map((course) => (
+						coursesWithProgress.map((course) => (
 							<CourseCardItem key={course.id} course={course} />
 						))
 					)}

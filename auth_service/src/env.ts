@@ -21,7 +21,7 @@ export const env = {
   isProduction: process.env.NODE_ENV === "production",
   port: parsePort(process.env.PORT),
   databaseUrl: process.env.DATABASE_URL,
-  databaseSchema: process.env.DATABASE_SCHEMA ?? "app",
+  databaseSchema: process.env.DATABASE_SCHEMA ?? "public",
   betterAuthSecret: process.env.BETTER_AUTH_SECRET,
   betterAuthUrl: process.env.BETTER_AUTH_URL ?? "http://localhost:3000",
   googleClientId: process.env.GOOGLE_CLIENT_ID,

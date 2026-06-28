@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -30,15 +32,16 @@ func (c *handlerCache) Delete(context.Context, string) error                    
 func (c *handlerCache) Publish(context.Context, string, string) error            { return nil }
 
 type handlerRepo struct {
-	cards   []repository.CourseCardRow
-	courses map[string]repository.CourseRow
-	modules map[string][]repository.ModuleRow
-	lessons map[string][]repository.LessonRow
-	seq     map[string][]repository.LessonSequencePointRow
+	cards    []repository.CourseCardRow
+	courses  map[string]repository.CourseRow
+	modules  map[string][]repository.ModuleRow
+	lessons  map[string][]repository.LessonRow
+	seq      map[string][]repository.LessonSequencePointRow
+	progress map[string][]repository.LessonProgressRow
 }
 
 func newHandlerRepo() *handlerRepo {
-	return &handlerRepo{courses: map[string]repository.CourseRow{}, modules: map[string][]repository.ModuleRow{}, lessons: map[string][]repository.LessonRow{}, seq: map[string][]repository.LessonSequencePointRow{}}
+	return &handlerRepo{courses: map[string]repository.CourseRow{}, modules: map[string][]repository.ModuleRow{}, lessons: map[string][]repository.LessonRow{}, seq: map[string][]repository.LessonSequencePointRow{}, progress: map[string][]repository.LessonProgressRow{}}
 }
 func (r *handlerRepo) CreateBetaAccessRequest(context.Context, string) (repository.BetaAccessRequest, error) {
 	return repository.BetaAccessRequest{}, nil
@@ -120,6 +123,20 @@ func (r *handlerRepo) GetLessonByID(_ context.Context, id string) (repository.Le
 	}
 	return repository.LessonRow{ID: id, DurationSeconds: 100}, nil
 }
+func (r *handlerRepo) ListLessonProgressByCourse(_ context.Context, courseID, _ string) ([]repository.LessonProgressRow, error) {
+	if rows, ok := r.progress[courseID]; ok {
+		return rows, nil
+	}
+	lessons := r.lessons[courseID]
+	rows := make([]repository.LessonProgressRow, 0, len(lessons))
+	for _, lesson := range lessons {
+		rows = append(rows, repository.LessonProgressRow{LessonID: lesson.ID, Status: "not_started"})
+	}
+	return rows, nil
+}
+func (r *handlerRepo) UpsertLessonProgress(_ context.Context, p repository.UpsertLessonProgressParams) (repository.LessonProgressRow, error) {
+	return repository.LessonProgressRow{LessonID: p.LessonID, Status: p.Status, LastPositionSeconds: p.LastPositionSeconds}, nil
+}
 func (r *handlerRepo) CourseSlugByModuleID(_ context.Context, id string) (string, error) {
 	if id == "missing" {
 		return "", repository.ErrNotFound
@@ -171,6 +188,51 @@ func TestPublicCourseHandlers(t *testing.T) {
 	r.ServeHTTP(w, req)
 	if w.Code != http.StatusNotFound {
 		t.Fatalf("missing status=%d body=%s", w.Code, w.Body.String())
+	}
+}
+
+func TestScalarUsesGeneratedSpecFileContent(t *testing.T) {
+	specPath := filepath.Join(t.TempDir(), "swagger.yaml")
+	marker := "Scalar regression marker from generated swagger yaml"
+	spec := "swagger: \"2.0\"\ninfo:\n  title: \"" + marker + "\"\n  version: \"1.0\"\npaths: {}\ndefinitions: {}\n"
+	if err := os.WriteFile(specPath, []byte(spec), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	svc := service.New(newHandlerRepo(), &handlerCache{})
+	logger := zap.NewNop()
+	h := New(svc, ws.NewHub(logger), logger, "test", "http://allowed.test", "", false)
+	h.scalarSpecPath = specPath
+	r := h.Routes()
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/scalar", nil)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("scalar status=%d body=%s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), marker) {
+		t.Fatalf("scalar did not include generated spec file marker %q; body=%s", marker, w.Body.String())
+	}
+}
+
+func TestProgressRequiresAuthentication(t *testing.T) {
+	repo := newHandlerRepo()
+	repo.courses["building-with-ai"] = repository.CourseRow{ID: "c1", Slug: "building-with-ai", Title: "Building", Description: "D", Status: "beta"}
+	r := testRouter(repo, "http://auth.test", false)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/courses/building-with-ai/progress", nil)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("progress without auth status=%d body=%s", w.Code, w.Body.String())
+	}
+
+	w = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/api/v1/lessons/l1/progress", strings.NewReader(`{"status":"completed"}`))
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("progress update without auth status=%d body=%s", w.Code, w.Body.String())
 	}
 }
 

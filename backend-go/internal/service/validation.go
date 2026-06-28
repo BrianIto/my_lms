@@ -61,6 +61,15 @@ func validateStatus(status string) error {
 	}
 }
 
+func isValidLessonStatus(status LessonStatus) bool {
+	switch status {
+	case LessonStatusNotStarted, LessonStatusInProgress, LessonStatusCompleted:
+		return true
+	default:
+		return false
+	}
+}
+
 var youtubeVideoID = regexp.MustCompile(`^[A-Za-z0-9_-]{6,20}$`)
 
 // normalizeYouTubeEmbedURL validates and normalizes a trusted YouTube embed URL.

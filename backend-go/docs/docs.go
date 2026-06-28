@@ -637,7 +637,7 @@ const docTemplate = `{
         },
         "/api/v1/courses/{slug}/progress": {
             "get": {
-                "description": "Gets per-user course progress. Development placeholder uses seeded progress.",
+                "description": "Gets authenticated per-user course progress, including lesson statuses.",
                 "produces": [
                     "application/json"
                 ],
@@ -661,6 +661,18 @@ const docTemplate = `{
                             "$ref": "#/definitions/backend-go_internal_service.CourseProgress"
                         }
                     },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/backend-go_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/backend-go_pkg_response.ErrorResponse"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -672,7 +684,7 @@ const docTemplate = `{
         },
         "/api/v1/lessons/{lessonID}/progress": {
             "post": {
-                "description": "Idempotently updates lesson progress for the authenticated user. Development placeholder echoes the normalized status.",
+                "description": "Idempotently updates lesson progress for the authenticated beta user.",
                 "consumes": [
                     "application/json"
                 ],
@@ -705,11 +717,29 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/backend-go_internal_service.LessonProgressUpdate"
+                            "$ref": "#/definitions/backend-go_internal_service.LessonProgress"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/backend-go_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/backend-go_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/backend-go_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/backend-go_pkg_response.ErrorResponse"
                         }
@@ -719,7 +749,7 @@ const docTemplate = `{
         },
         "/api/v1/me/access": {
             "get": {
-                "description": "Returns session/beta access state for the current user. This is a development placeholder until Better Auth session validation is wired.",
+                "description": "Returns session/beta access state for the current user by validating Better Auth through auth_service.",
                 "produces": [
                     "application/json"
                 ],
@@ -832,6 +862,12 @@ const docTemplate = `{
                 "course_slug": {
                     "type": "string"
                 },
+                "lessons": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/backend-go_internal_service.LessonProgress"
+                    }
+                },
                 "percent": {
                     "type": "integer"
                 },
@@ -936,9 +972,29 @@ const docTemplate = `{
                 }
             }
         },
+        "backend-go_internal_service.LessonProgress": {
+            "type": "object",
+            "properties": {
+                "completed_at": {
+                    "type": "string"
+                },
+                "last_position_seconds": {
+                    "type": "integer"
+                },
+                "lesson_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/backend-go_internal_service.LessonStatus"
+                }
+            }
+        },
         "backend-go_internal_service.LessonProgressUpdate": {
             "type": "object",
             "properties": {
+                "last_position_seconds": {
+                    "type": "integer"
+                },
                 "status": {
                     "$ref": "#/definitions/backend-go_internal_service.LessonStatus"
                 }

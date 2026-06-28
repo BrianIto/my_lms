@@ -22,7 +22,12 @@ import {
 import { Progress } from "#/components/ui/progress.tsx";
 import { Separator } from "#/components/ui/separator.tsx";
 import { getCourse, getCourseProgress } from "#/lib/backend-api.ts";
-import { countLessons, formatDuration, getNextLesson } from "#/lib/lms-data.ts";
+import {
+	countLessons,
+	formatDuration,
+	getNextLesson,
+	mergeCourseProgress,
+} from "#/lib/lms-data.ts";
 
 export const Route = createFileRoute("/_protected/courses/$slug")({
 	component: CourseView,
@@ -40,7 +45,10 @@ function CourseView() {
 		queryFn: () => getCourseProgress(slug),
 		staleTime: 30 * 1000,
 	});
-	const course = courseQuery.data;
+	const baseCourse = courseQuery.data;
+	const course = baseCourse
+		? mergeCourseProgress(baseCourse, progressQuery.data)
+		: undefined;
 	const progress = progressQuery.data?.percent ?? course?.progress ?? 0;
 	const nextLesson = course ? getNextLesson(course) : undefined;
 

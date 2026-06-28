@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"backend-go/internal/repository"
@@ -83,15 +84,25 @@ type CourseCard struct {
 
 // CourseProgress is per-user course completion. Progress is tracked separately from static data.
 type CourseProgress struct {
-	CourseSlug       string `json:"course_slug"`
-	CompletedLessons int    `json:"completed_lessons"`
-	TotalLessons     int    `json:"total_lessons"`
-	Percent          int    `json:"percent"`
+	CourseSlug       string           `json:"course_slug"`
+	CompletedLessons int              `json:"completed_lessons"`
+	TotalLessons     int              `json:"total_lessons"`
+	Percent          int              `json:"percent"`
+	Lessons          []LessonProgress `json:"lessons"`
+}
+
+// LessonProgress is one user's state for a lesson.
+type LessonProgress struct {
+	LessonID            string       `json:"lesson_id"`
+	Status              LessonStatus `json:"status"`
+	LastPositionSeconds *int         `json:"last_position_seconds,omitempty"`
+	CompletedAt         *time.Time   `json:"completed_at,omitempty"`
 }
 
 // LessonProgressUpdate is the idempotent per-lesson progress payload.
 type LessonProgressUpdate struct {
-	Status LessonStatus `json:"status"`
+	Status              LessonStatus `json:"status"`
+	LastPositionSeconds *int         `json:"last_position_seconds,omitempty"`
 }
 
 // CreateCourseInput is the create-course request body.
@@ -278,29 +289,74 @@ func (s *Service) loadCourseDetail(ctx context.Context, slug string) (Course, er
 	}, nil
 }
 
-// GetCourseProgress returns per-user progress. Progress tracking is a separate workstream;
-// this currently reports the lesson total with zero completed until progress storage lands.
-func (s *Service) GetCourseProgress(ctx context.Context, slug string) (CourseProgress, error) {
-	course, err := s.GetCourse(ctx, slug)
+// GetCourseProgress returns per-user progress without using the global static course cache.
+func (s *Service) GetCourseProgress(ctx context.Context, userID, slug string) (CourseProgress, error) {
+	if strings.TrimSpace(userID) == "" {
+		return CourseProgress{}, invalid("user id is required")
+	}
+	row, err := s.repo.GetCourseBySlug(ctx, slug)
+	if errors.Is(err, repository.ErrNotFound) {
+		return CourseProgress{}, ErrNotFound
+	}
 	if err != nil {
-		return CourseProgress{}, err
+		return CourseProgress{}, fmt.Errorf("get course: %w", err)
 	}
-	total := 0
-	for _, module := range course.Modules {
-		total += len(module.Lessons)
+
+	rows, err := s.repo.ListLessonProgressByCourse(ctx, row.ID, userID)
+	if err != nil {
+		return CourseProgress{}, fmt.Errorf("list progress: %w", err)
 	}
-	return CourseProgress{CourseSlug: slug, CompletedLessons: 0, TotalLessons: total, Percent: 0}, nil
+	lessons := make([]LessonProgress, 0, len(rows))
+	completed := 0
+	for _, row := range rows {
+		status := LessonStatus(row.Status)
+		if status == LessonStatusCompleted {
+			completed++
+		}
+		lessons = append(lessons, LessonProgress{
+			LessonID:            row.LessonID,
+			Status:              status,
+			LastPositionSeconds: row.LastPositionSeconds,
+			CompletedAt:         row.CompletedAt,
+		})
+	}
+	total := len(rows)
+	percent := 0
+	if total > 0 {
+		percent = (completed * 100) / total
+	}
+	return CourseProgress{CourseSlug: slug, CompletedLessons: completed, TotalLessons: total, Percent: percent, Lessons: lessons}, nil
 }
 
-// UpdateLessonProgress idempotently normalizes a lesson progress status (placeholder storage).
-func (s *Service) UpdateLessonProgress(_ context.Context, lessonID string, update LessonProgressUpdate) (LessonProgressUpdate, error) {
+// UpdateLessonProgress idempotently persists one user's progress for a lesson.
+func (s *Service) UpdateLessonProgress(ctx context.Context, userID, lessonID string, update LessonProgressUpdate) (LessonProgress, error) {
+	if strings.TrimSpace(userID) == "" {
+		return LessonProgress{}, invalid("user id is required")
+	}
 	if lessonID == "" {
-		return LessonProgressUpdate{}, invalid("lesson id is required")
+		return LessonProgress{}, invalid("lesson id is required")
 	}
 	if update.Status == "" {
 		update.Status = LessonStatusCompleted
 	}
-	return update, nil
+	if !isValidLessonStatus(update.Status) {
+		return LessonProgress{}, invalid("invalid lesson status")
+	}
+	if update.LastPositionSeconds != nil && *update.LastPositionSeconds < 0 {
+		return LessonProgress{}, invalid("last_position_seconds must be non-negative")
+	}
+	if _, err := s.repo.GetLessonByID(ctx, lessonID); errors.Is(err, repository.ErrNotFound) {
+		return LessonProgress{}, ErrNotFound
+	} else if err != nil {
+		return LessonProgress{}, fmt.Errorf("get lesson: %w", err)
+	}
+	row, err := s.repo.UpsertLessonProgress(ctx, repository.UpsertLessonProgressParams{
+		UserID: userID, LessonID: lessonID, Status: string(update.Status), LastPositionSeconds: update.LastPositionSeconds,
+	})
+	if err != nil {
+		return LessonProgress{}, fmt.Errorf("upsert lesson progress: %w", err)
+	}
+	return LessonProgress{LessonID: row.LessonID, Status: LessonStatus(row.Status), LastPositionSeconds: row.LastPositionSeconds, CompletedAt: row.CompletedAt}, nil
 }
 
 // CreateCourse validates and persists a new course, then invalidates the public list cache.

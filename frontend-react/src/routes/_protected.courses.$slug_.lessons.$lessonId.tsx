@@ -29,7 +29,12 @@ import {
 	getCourseProgress,
 	updateLessonProgress,
 } from "#/lib/backend-api.ts";
-import { findLesson, formatDuration, formatTimestamp } from "#/lib/lms-data.ts";
+import {
+	findLesson,
+	formatDuration,
+	formatTimestamp,
+	mergeCourseProgress,
+} from "#/lib/lms-data.ts";
 
 export const Route = createFileRoute(
 	"/_protected/courses/$slug_/lessons/$lessonId",
@@ -50,7 +55,10 @@ function LessonView() {
 		queryFn: () => getCourseProgress(slug),
 		staleTime: 30 * 1000,
 	});
-	const course = courseQuery.data;
+	const baseCourse = courseQuery.data;
+	const course = baseCourse
+		? mergeCourseProgress(baseCourse, progressQuery.data)
+		: undefined;
 	const lesson = course ? findLesson(course, lessonId) : undefined;
 	const playerRef = useRef<YouTubeLessonPlayerHandle | null>(null);
 	const [isPlayerReady, setIsPlayerReady] = useState(false);
@@ -58,9 +66,12 @@ function LessonView() {
 		mutationFn: updateLessonProgress,
 		onSuccess: async () => {
 			toast.success("Progress updated");
-			await queryClient.invalidateQueries({
-				queryKey: ["courses", slug, "progress"],
-			});
+			await Promise.all([
+				queryClient.invalidateQueries({
+					queryKey: ["courses", slug, "progress"],
+				}),
+				queryClient.invalidateQueries({ queryKey: ["courses"] }),
+			]);
 		},
 		onError: (error) => {
 			toast.error(
