@@ -85,7 +85,7 @@ func run() error {
 	hub := ws.NewHub(logger)
 	go hub.Run(ctx)
 	svc := service.New(repository.New(dbpool), redisCache)
-	h := handler.New(svc, hub, logger, cfg.Env, cfg.WSAllowedOrigins)
+	h := handler.New(svc, hub, logger, cfg.Env, cfg.WSAllowedOrigins, cfg.AuthServiceURL, cfg.AdminWritesOff)
 
 	server := &http.Server{Addr: cfg.HTTPAddr, Handler: h.Routes()}
 	go func() {

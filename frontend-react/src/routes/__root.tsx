@@ -8,6 +8,7 @@ import {
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 
 import { Toaster } from "#/components/ui/sonner.tsx";
+import { SmoothScrollProvider } from "#/lib/smooth-scroll.tsx";
 import TanStackQueryDevtools from "../integrations/tanstack-query/devtools";
 import appCss from "../styles.css?url";
 
@@ -46,7 +47,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 				<HeadContent />
 			</head>
 			<body>
-				{children}
+				<SmoothScrollProvider>{children}</SmoothScrollProvider>
 				<Toaster
 					toastOptions={{
 						style: {

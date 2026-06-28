@@ -11,19 +11,46 @@ Add secure backend endpoints that let an admin create courses, create modules, a
 
 The backend remains the source of truth for LMS data. Static course structure can be cached aggressively; per-user progress stays separate and uncached globally.
 
+## Prerequisite: real admin auth (blocking)
+
+Today the backend has no session/admin validation: `internal/handler/handler.go` `GetAccess()` returns a hardcoded `{Authenticated: true, BetaAccess: true}` placeholder. Exposing course/module/lesson **write** endpoints on top of that stub means shipping unauthenticated mutation routes.
+
+Therefore, real Better Auth session validation plus an admin-permission check is a **blocking prerequisite** for every admin write endpoint below — not a trailing step. Concretely:
+
+- Admin middleware must validate the Better Auth session and reject non-admin callers with `403` before any handler runs.
+- Until that middleware is wired, admin write routes must stay feature-flagged off in any deployed environment.
+- Acceptance: admin writes reject anonymous callers with `401` and authenticated non-admins with `403`.
+
 ## Current context
 
 - Existing public/business routes live under `/api/v1` in `backend-go/internal/handler/handler.go`.
-- Course data is currently seeded in memory in `backend-go/internal/service/course.go`.
-- The admin frontend already has a course-authoring placeholder with fields for title, slug, description, status, and YouTube embed URL.
+- Course data was originally seeded in memory in `backend-go/internal/service/course.go`; recent backend changes move course catalog reads/writes toward Postgres-backed repository/service methods plus a seed migration.
+- The admin frontend still has a course-authoring placeholder with fields for title, slug, description, status, and YouTube embed URL; it is not yet wired to the backend authoring endpoints.
 - Existing catalog routes:
   - `GET /api/v1/courses`
   - `GET /api/v1/courses/{slug}`
-- Planned admin routes from `plan/05-admin-and-production.md`:
+- Planned/partially implemented admin routes from `plan/05-admin-and-production.md` and this course plan:
+  - `GET /api/v1/admin/courses`
   - `POST /api/v1/admin/courses`
   - `PATCH /api/v1/admin/courses/{id}`
   - `POST /api/v1/admin/courses/{id}/modules`
   - `POST /api/v1/admin/modules/{id}/lessons`
+  - `PUT /api/v1/admin/lessons/{id}/sequence`
+
+## Implementation status and remaining gaps
+
+Recent backend work has added the first DB-backed course catalog/admin authoring slice: normalized course/module/lesson/lesson-sequence migrations, repository/service methods, public course list/detail caching, slug-keyed detail cache invalidation, admin routes, CORS methods for writes, and a Better Auth session check for admin write routes.
+
+What is still missing before this plan is production-ready:
+
+- **Backend tests are still missing.** There are currently no `*_test.go` files covering course creation, duplicate slugs, invalid statuses, missing parents, YouTube URL validation, lesson-sequence timestamp validation, cache invalidation, draft exclusion, or ordering.
+- **OpenAPI docs need regeneration.** `backend-go/docs` does not yet include the new admin/course DTOs and routes; run `cd backend-go && make docs` after the route annotations compile cleanly.
+- **Public/private course access still needs real auth gating.** `GetAccess()` still returns a hardcoded authenticated/beta response, and the public catalog/detail routes are not yet protected by real Better Auth session + beta-access validation where private course content is required.
+- **Admin auth needs end-to-end verification.** The backend admin middleware expects `/api/auth/get-session` to return a `user.role` containing `admin`; verify this contract with the auth service, cookies/CORS, and anonymous/non-admin/admin integration cases.
+- **Frontend is not wired to these course APIs yet.** Dashboard, course detail, lesson player, and admin authoring still read from static `frontend-react/src/lib/lms-data.ts`; replace that with TanStack Query calls to the backend and submit admin forms to the new endpoints.
+- **Progress storage remains placeholder-only.** `GetCourseProgress()` reports zero completed lessons from static totals and `UpdateLessonProgress()` only normalizes the payload; the per-user progress schema/API from `plan/03-progress-and-player.md` still needs persistence and auth-derived user IDs.
+- **Operational migration flow needs confirmation.** Ensure the new `004_course_catalog` migration is applied by the local/dev startup path and documented for deploys; do not rely on checked-in schema alone.
+- **Optional import/admin UX remains future work.** The bulk course import endpoint and richer module/lesson/sequence editing UI are still not implemented.
 
 ## Frontend-driven API requirements
 
@@ -59,6 +86,12 @@ The API should return enough data for the admin screen to immediately update its
 ```
 
 Do not include user progress in the static list response. Progress remains a separate query.
+
+**Admin vs public list caching.** A single shared `courses:list:v1` key cannot serve both audiences: the public catalog must exclude `draft` courses, while the admin inventory must see them. Resolve this explicitly:
+
+- `courses:list:v1` caches only the **public, draft-excluded** list. It is served to non-admin callers.
+- Admin inventory uses a separate path that includes drafts — either a dedicated admin listing query that **bypasses the public cache**, or a distinct `courses:list:admin:v1` key that is never returned to non-admin callers.
+- Never serve the admin-visible list (with drafts) from the public key.
 
 ### Course detail screen
 
@@ -108,6 +141,8 @@ Do not include user progress in the static list response. Progress remains a sep
 
 The frontend can combine this static response with `GET /api/v1/courses/{slug}/progress` for completion state.
 
+**Detail cache key consistency.** The read route is keyed by `slug`, but the existing cache key is `courses:detail:{courseID}:v1`. Reads cannot compute that key without first resolving slug→id (a DB hit that partly defeats the cache), and writes only know the `courseID`. Pick one consistent scheme so reads and invalidations target the same key. Recommended: key the detail cache by **slug** (`courses:detail:{slug}:v1`) so the read path needs no pre-lookup. If a slug ever becomes editable, invalidate both the old and new slug keys on update.
+
 ### Lesson player screen
 
 The lesson player needs stable lesson IDs, trusted YouTube embed URLs, duration, previous/next lesson derivation, the course outline, and a `lesson_sequence` array. `lesson_sequence` is a set of timestamped bookmarks/chapters inside the video that the frontend can render as a calm technical timeline beside or below the player.
@@ -121,7 +156,7 @@ Lesson Sequence requirements:
 - Each point belongs to one lesson.
 - Each point has a title, optional short description, timestamp in seconds, and sort order.
 - Points must be ordered by `sort_order`, then `timestamp_seconds`.
-- `timestamp_seconds` must be `>= 0` and less than or equal to the lesson `duration_seconds` when duration is known.
+- `timestamp_seconds` must be between `0` and the lesson's `duration_seconds`. Since `duration_seconds` is required and `> 0` on every lesson, duration is always known — there is no "unknown duration" case to special-case in the MVP.
 - The lesson player can use these points as clickable bookmarks that seek the YouTube iframe to that section.
 - These points are static course content, so they can be cached with course detail responses.
 
@@ -195,10 +230,12 @@ Request allows partial updates:
 }
 ```
 
+Partial-update semantics: use pointer fields (`*string`, `*int`) or a patch map in the request DTO so the handler can distinguish "field omitted" from "field set to empty/zero". A plain struct with value fields would silently overwrite unspecified fields with their zero values. `slug` is not editable via PATCH in the MVP; if that changes later, invalidate both the old and new `courses:detail:{slug}:v1` keys.
+
 Side effects:
 
 - Invalidate `courses:list:v1`.
-- Invalidate `courses:detail:{courseID}:v1`.
+- Invalidate `courses:detail:{slug}:v1`.
 
 ### 3. Create module
 
@@ -231,12 +268,12 @@ Validation:
 
 - Course must exist.
 - Module title is required.
-- Sort order should be unique within course when practical, or normalized by service.
+- Do not enforce a unique constraint on `sort_order`. Accept the client value and resolve ties deterministically with `ORDER BY sort_order, created_at` everywhere ordering matters. This applies equally to module, lesson, and lesson-sequence ordering.
 
 Side effects:
 
 - Invalidate `courses:list:v1` because module count changed.
-- Invalidate `courses:detail:{courseID}:v1`.
+- Invalidate `courses:detail:{slug}:v1`.
 
 ### 4. Add lesson to module
 
@@ -307,7 +344,7 @@ Validation:
 Side effects:
 
 - Invalidate `courses:list:v1` because lesson count/duration changed.
-- Invalidate `courses:detail:{courseID}:v1` for the parent course.
+- Invalidate `courses:detail:{slug}:v1` for the parent course.
 
 ### 5. Add or replace lesson sequence points
 
@@ -344,7 +381,7 @@ Implementation note: replace all points for the lesson in one transaction for MV
 
 Side effects:
 
-- Invalidate `courses:detail:{courseID}:v1` for the parent course.
+- Invalidate `courses:detail:{slug}:v1` for the parent course.
 - No need to invalidate `courses:list:v1` unless list cards start showing sequence counts.
 
 ### 6. Optional bulk create course with modules and lessons
@@ -389,6 +426,8 @@ Accept the seed-file shape from `AGENTS.md` and persist in one transaction:
 ```
 
 This endpoint is useful for the admin screen once it supports multiple module/lesson rows.
+
+Casing note: the example above uses camelCase (`youtubeEmbedUrl`, `durationSeconds`) to match the existing `AGENTS.md` seed-file shape, while the atomic endpoints use snake_case (`youtube_embed_url`, `duration_seconds`). Pick one convention for the public JSON API and apply it consistently. Recommended: snake_case everywhere to match the atomic endpoints and existing catalog responses; if the import body must accept the seed-file camelCase verbatim, treat it as an explicit ingestion adapter, not the general API style.
 
 ## Database plan
 
@@ -438,6 +477,8 @@ CREATE TABLE lesson_sequence_points (
 );
 ```
 
+`updated_at` note: `DEFAULT now()` only sets the value on INSERT — Postgres does not bump it on UPDATE. Either add a `BEFORE UPDATE` trigger that sets `updated_at = now()` on each table, or set `updated_at = now()` explicitly in every update query. Don't rely on the default to keep it fresh.
+
 Indexes:
 
 - `courses(status, sort_order)` for catalog list.
@@ -456,11 +497,12 @@ Indexes:
    - replace lesson sequence points
    - list courses with counts/duration
    - get course by slug with modules, lessons, and lesson sequence points
+   - resolve a course slug for cache invalidation given a child ID: `module ID -> course slug` and `lesson ID -> course slug`. The lesson and lesson-sequence write routes only carry a module/lesson ID, but they must invalidate the parent `courses:detail:{slug}:v1` key — so the service needs these lookups (a join up to `courses`) before busting the cache.
 3. Move `service.Course`, `service.Module`, and `service.Lesson` responses from seeded data to DB-backed reads.
 4. Add request DTOs and validation helpers in the service layer.
 5. Add YouTube embed URL validation/normalization helper with unit tests.
 6. Add lesson sequence timestamp validation with unit tests.
-7. Add admin middleware/guard placeholder that will call Better Auth/admin session validation when wired.
+7. Wire real admin middleware (blocking prerequisite, see top of plan): validate the Better Auth session and reject anonymous callers with `401` and authenticated non-admins with `403` before any admin handler runs. Do not ship admin writes behind the existing hardcoded access stub; if the middleware is not yet wired, keep admin write routes feature-flagged off in deployed environments.
 8. Register admin routes in `handler.Routes()`.
 9. Update CORS allowed methods to include `PATCH`, `PUT`, and possibly `DELETE` later.
 10. Invalidate Redis keys after every authoring write.
@@ -471,7 +513,7 @@ Indexes:
 Read routes:
 
 - `GET /api/v1/courses` uses `courses:list:v1`.
-- `GET /api/v1/courses/{slug}` uses `courses:detail:{courseID}:v1`.
+- `GET /api/v1/courses/{slug}` uses `courses:detail:{slug}:v1`.
 
 Write routes:
 
@@ -524,6 +566,8 @@ An admin can create a course, add modules, add YouTube lessons, and immediately 
 
 ## Done checks
 
+- Admin write endpoints reject anonymous callers with `401` and authenticated non-admins with `403` (no reliance on the hardcoded access stub).
+- Public `GET /api/v1/courses` excludes `draft` courses while admin inventory still sees them, served from separate cache paths.
 - `POST /api/v1/admin/courses` creates normalized course rows.
 - `POST /api/v1/admin/courses/{id}/modules` creates ordered modules.
 - `POST /api/v1/admin/modules/{id}/lessons` creates validated YouTube lessons with optional sequence bookmarks.
