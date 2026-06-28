@@ -7,7 +7,7 @@ import {
 } from "@remixicon/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { LmsShell } from "#/components/lms-shell.tsx";
 import { Badge } from "#/components/ui/badge.tsx";
@@ -21,104 +21,15 @@ import {
 } from "#/components/ui/card.tsx";
 import { Progress } from "#/components/ui/progress.tsx";
 import {
+	YouTubeLessonPlayer,
+	type YouTubeLessonPlayerHandle,
+} from "#/components/youtube-lesson-player.tsx";
+import {
 	getCourse,
 	getCourseProgress,
 	updateLessonProgress,
 } from "#/lib/backend-api.ts";
 import { findLesson, formatDuration, formatTimestamp } from "#/lib/lms-data.ts";
-
-type YouTubePlayer = {
-	destroy: () => void;
-	seekTo: (seconds: number, allowSeekAhead: boolean) => void;
-};
-
-type YouTubeIframeAPI = {
-	Player: new (
-		element: HTMLElement | string,
-		options: {
-			videoId: string;
-			host?: string;
-			playerVars?: Record<string, number | string>;
-			events?: {
-				onReady?: () => void;
-				onError?: () => void;
-			};
-		},
-	) => YouTubePlayer;
-};
-
-declare global {
-	interface Window {
-		YT?: YouTubeIframeAPI;
-		onYouTubeIframeAPIReady?: () => void;
-	}
-}
-
-let youtubeApiPromise: Promise<YouTubeIframeAPI> | null = null;
-
-function loadYouTubeIframeApi() {
-	if (typeof window === "undefined") {
-		return Promise.reject(new Error("YouTube API is unavailable during SSR."));
-	}
-
-	if (window.YT?.Player) {
-		return Promise.resolve(window.YT);
-	}
-
-	youtubeApiPromise ??= new Promise<YouTubeIframeAPI>((resolve, reject) => {
-		const existingScript = document.querySelector<HTMLScriptElement>(
-			'script[src="https://www.youtube.com/iframe_api"]',
-		);
-		const previousReady = window.onYouTubeIframeAPIReady;
-
-		window.onYouTubeIframeAPIReady = () => {
-			previousReady?.();
-			if (window.YT?.Player) {
-				resolve(window.YT);
-			} else {
-				reject(new Error("YouTube API loaded without a player."));
-			}
-		};
-
-		if (!existingScript) {
-			const script = document.createElement("script");
-			script.src = "https://www.youtube.com/iframe_api";
-			script.async = true;
-			script.onerror = () => reject(new Error("Could not load YouTube API."));
-			document.head.appendChild(script);
-		}
-	});
-
-	return youtubeApiPromise;
-}
-
-function getYouTubeVideoId(embedUrl: string) {
-	try {
-		const url = new URL(embedUrl);
-		const host = url.hostname.replace(/^www\./, "");
-		const isYouTubeHost =
-			host === "youtube.com" || host === "youtube-nocookie.com";
-
-		if (!isYouTubeHost) {
-			return undefined;
-		}
-
-		const [, embedSegment, videoId] = url.pathname.split("/");
-		return embedSegment === "embed" && videoId ? videoId : undefined;
-	} catch {
-		return undefined;
-	}
-}
-
-function getYouTubeHost(embedUrl: string) {
-	try {
-		return new URL(embedUrl).hostname.includes("youtube-nocookie.com")
-			? "https://www.youtube-nocookie.com"
-			: "https://www.youtube.com";
-	} catch {
-		return "https://www.youtube.com";
-	}
-}
 
 export const Route = createFileRoute(
 	"/_protected/courses/$slug_/lessons/$lessonId",
@@ -141,12 +52,8 @@ function LessonView() {
 	});
 	const course = courseQuery.data;
 	const lesson = course ? findLesson(course, lessonId) : undefined;
-	const playerContainerRef = useRef<HTMLDivElement>(null);
-	const playerRef = useRef<YouTubePlayer | null>(null);
+	const playerRef = useRef<YouTubeLessonPlayerHandle | null>(null);
 	const [isPlayerReady, setIsPlayerReady] = useState(false);
-	const videoId = lesson
-		? getYouTubeVideoId(lesson.youtubeEmbedUrl)
-		: undefined;
 	const progressMutation = useMutation({
 		mutationFn: updateLessonProgress,
 		onSuccess: async () => {
@@ -162,71 +69,12 @@ function LessonView() {
 		},
 	});
 
-	useEffect(() => {
-		const container = playerContainerRef.current;
-
-		if (!lesson || !videoId || !container) {
-			return;
-		}
-
-		let isMounted = true;
-		setIsPlayerReady(false);
-		container.replaceChildren();
-
-		loadYouTubeIframeApi()
-			.then((api) => {
-				if (!isMounted || !playerContainerRef.current) {
-					return;
-				}
-
-				playerRef.current = new api.Player(playerContainerRef.current, {
-					videoId,
-					host: getYouTubeHost(lesson.youtubeEmbedUrl),
-					playerVars: {
-						enablejsapi: 1,
-						modestbranding: 1,
-						playsinline: 1,
-						rel: 0,
-					},
-					events: {
-						onReady: () => {
-							if (isMounted) {
-								setIsPlayerReady(true);
-							}
-						},
-						onError: () => {
-							if (isMounted) {
-								setIsPlayerReady(false);
-							}
-						},
-					},
-				});
-			})
-			.catch((error) => {
-				if (isMounted) {
-					toast.error(
-						error instanceof Error
-							? error.message
-							: "Could not load YouTube player.",
-					);
-				}
-			});
-
-		return () => {
-			isMounted = false;
-			setIsPlayerReady(false);
-			playerRef.current?.destroy();
-			playerRef.current = null;
-			container.replaceChildren();
-		};
-	}, [lesson, videoId]);
-
 	function seekToBookmark(seconds: number) {
 		if (!isPlayerReady || !playerRef.current) {
 			return;
 		}
 
-		playerRef.current.seekTo(seconds, true);
+		playerRef.current.seekTo(seconds);
 	}
 
 	return (
@@ -250,19 +98,12 @@ function LessonView() {
 			{!course || !lesson ? null : (
 				<div className="grid gap-5 lg:grid-cols-[1fr_340px]">
 					<section className="flex flex-col gap-4">
-						<div className="overflow-hidden rounded-xl border border-white/20 bg-black shadow-[0_0_40px_rgba(255,186,90,0.06)]">
-							{videoId ? (
-								<div
-									ref={playerContainerRef}
-									className="min-h-[480px] w-full [&_iframe]:aspect-video [&_iframe]:h-full [&_iframe]:w-full"
-								/>
-							) : (
-								<div className="flex aspect-video w-full items-center justify-center p-6 text-center text-sm text-muted-foreground">
-									This lesson video URL could not be prepared for YouTube
-									playback.
-								</div>
-							)}
-						</div>
+						<YouTubeLessonPlayer
+							ref={playerRef}
+							embedUrl={lesson.youtubeEmbedUrl}
+							title={lesson.title}
+							onReadyChange={setIsPlayerReady}
+						/>
 
 						<Card className="border-white/15 bg-background/85">
 							<CardHeader>
