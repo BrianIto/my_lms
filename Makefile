@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 
 .PHONY: help dev dev-no-install dev-no-migrate dev-help install check test build \
-	prod prod-infra prod-migrate prod-auth-migrate prod-apps prod-logs prod-restart prod-down prod-down-volumes prod-ps prod-smoke \
+	prod prod-infra prod-migrate prod-auth-migrate prod-apps prod-logs prod-restart prod-down prod-down-volumes prod-ps prod-psql prod-smoke \
 	backend-run backend-build backend-test backend-docs backend-sqlc backend-docker-up backend-docker-down \
 	auth-dev auth-build auth-typecheck auth-migrate auth-generate \
 	frontend-dev frontend-build frontend-check frontend-test
@@ -77,6 +77,9 @@ prod-down-volumes: ## DANGER: Stop production stack and delete all persisted vol
 
 prod-ps: ## Show production Docker Compose service status
 	docker compose --env-file deploy/.env.prod -f deploy/docker-compose.prod.yml ps
+
+prod-psql: ## Open psql in the production Postgres container
+	docker compose --env-file deploy/.env.prod -f deploy/docker-compose.prod.yml exec postgres sh -lc 'psql -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"'
 
 prod-smoke: ## Run production API/auth smoke checks
 	curl https://api.brianito.com/health
