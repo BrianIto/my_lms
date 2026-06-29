@@ -45,27 +45,47 @@ export function SignInDialog({
 	const prefersReducedMotion = useReducedMotion();
 
 	async function signInWithGoogle() {
-		setStatus({ state: "loading", message: "Opening Google sign-in…" });
+		setStatus({ state: "loading", message: "Starting Google sign-in…" });
 
 		try {
+			const callbackURL = `${window.location.origin}/dashboard`;
 			const result = await authClient.signIn.social({
 				provider: "google",
-				callbackURL: `${window.location.origin}/dashboard`,
+				callbackURL,
+				disableRedirect: true,
 			});
 
 			if (result.error) {
 				setStatus({
 					state: "error",
-					message: result.error.message ?? "Google sign-in could not start.",
+					message: [
+						"Google sign-in failed before reaching Google.",
+						result.error.code ? `Code: ${result.error.code}.` : null,
+						result.error.message ? `Message: ${result.error.message}` : null,
+					]
+						.filter(Boolean)
+						.join(" "),
 				});
+				return;
 			}
+
+			if (!result.data?.url) {
+				setStatus({
+					state: "error",
+					message:
+						"Google sign-in did not return a redirect URL. Check the auth service response in Network → sign-in/social.",
+				});
+				return;
+			}
+
+			window.location.assign(result.data.url);
 		} catch (error) {
 			setStatus({
 				state: "error",
 				message:
 					error instanceof Error
-						? error.message
-						: "Google sign-in could not start.",
+						? `Google sign-in request failed: ${error.message}`
+						: "Google sign-in request failed before reaching Google.",
 			});
 		}
 	}
