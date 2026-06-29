@@ -188,13 +188,19 @@ Show service status:
 make prod-ps
 ```
 
-Stop stack:
+Stop stack without deleting persisted data:
 
 ```bash
 make prod-down
 ```
 
-Do not run `down -v` in production unless you intentionally want to remove Postgres/Redis/Grafana/Prometheus data.
+Reset the production stack and delete all persisted volumes:
+
+```bash
+make prod-down-volumes
+```
+
+`make prod-down-volumes` is destructive. It removes Postgres, Redis, Grafana, and Prometheus volumes. Only use it for a fresh/reset deployment when data loss is acceptable, such as clearing an old database initialized with the wrong credentials.
 
 ## Local validation before deploy
 
