@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 
 .PHONY: help dev dev-no-install dev-no-migrate dev-help install check test build \
-	prod prod-infra prod-migrate prod-auth-migrate prod-apps prod-logs prod-restart prod-down prod-ps prod-smoke \
+	prod prod-infra prod-migrate prod-auth-migrate prod-apps prod-logs prod-restart prod-down prod-down-volumes prod-ps prod-smoke \
 	backend-run backend-build backend-test backend-docs backend-sqlc backend-docker-up backend-docker-down \
 	auth-dev auth-build auth-typecheck auth-migrate auth-generate \
 	frontend-dev frontend-build frontend-check frontend-test
@@ -62,6 +62,18 @@ prod-restart: ## Restart/rebuild production app services
 
 prod-down: ## Stop the production Docker Compose stack without deleting volumes
 	docker compose --env-file deploy/.env.prod -f deploy/docker-compose.prod.yml down
+
+prod-down-volumes: ## DANGER: Stop production stack and delete all persisted volumes
+	@printf '\nDANGER: This deletes production Docker volumes, including Postgres, Redis, Grafana, and Prometheus data.\n'
+	@printf 'Only use this for a fresh/reset deployment when data loss is acceptable.\n\n'
+	@printf 'Type "delete production volumes" to continue: '; \
+	read confirm; \
+	if [ "$$confirm" = "delete production volumes" ]; then \
+		docker compose --env-file deploy/.env.prod -f deploy/docker-compose.prod.yml down -v; \
+	else \
+		echo 'Aborted.'; \
+		exit 1; \
+	fi
 
 prod-ps: ## Show production Docker Compose service status
 	docker compose --env-file deploy/.env.prod -f deploy/docker-compose.prod.yml ps
