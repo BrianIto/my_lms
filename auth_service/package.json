@@ -10,6 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "tsx --test \"test/**/*.test.ts\"",
     "auth:migrate": "npx -y @better-auth/cli@latest migrate --config src/auth.ts --yes",
+    "auth:migrate:prod": "npx -y @better-auth/cli@latest migrate --config dist/auth.js --yes",
     "auth:generate": "npx -y @better-auth/cli@latest generate --config src/auth.ts"
   },
   "dependencies": {
