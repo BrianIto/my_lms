@@ -49,7 +49,7 @@ prod-migrate: ## Run production backend database migrations
 	docker compose --env-file deploy/.env.prod -f deploy/docker-compose.prod.yml run --rm postgres-migrate
 
 prod-auth-migrate: ## Run production Better Auth migrations
-	docker compose --env-file deploy/.env.prod -f deploy/docker-compose.prod.yml run --rm auth npm run auth:migrate
+	docker compose --env-file deploy/.env.prod -f deploy/docker-compose.prod.yml run --rm auth npm run auth:migrate:prod
 
 prod-apps: ## Start/rebuild production app services
 	docker compose --env-file deploy/.env.prod -f deploy/docker-compose.prod.yml up -d --build backend auth
