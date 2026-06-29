@@ -1,6 +1,7 @@
 .DEFAULT_GOAL := help
 
 .PHONY: help dev dev-no-install dev-no-migrate dev-help install check test build \
+	prod prod-infra prod-migrate prod-auth-migrate prod-apps prod-logs prod-restart prod-down prod-ps prod-smoke \
 	backend-run backend-build backend-test backend-docs backend-sqlc backend-docker-up backend-docker-down \
 	auth-dev auth-build auth-typecheck auth-migrate auth-generate \
 	frontend-dev frontend-build frontend-check frontend-test
@@ -37,6 +38,37 @@ build: ## Build all services/apps
 	$(MAKE) -C backend-go build
 	cd auth_service && npm run build
 	cd frontend-react && bun --bun run build
+
+prod: ## Start/rebuild the production Docker Compose stack
+	docker compose --env-file deploy/.env.prod -f deploy/docker-compose.prod.yml up -d --build
+
+prod-infra: ## Start/rebuild production infrastructure services
+	docker compose --env-file deploy/.env.prod -f deploy/docker-compose.prod.yml up -d --build postgres redis otel-collector prometheus grafana
+
+prod-migrate: ## Run production backend database migrations
+	docker compose --env-file deploy/.env.prod -f deploy/docker-compose.prod.yml run --rm postgres-migrate
+
+prod-auth-migrate: ## Run production Better Auth migrations
+	docker compose --env-file deploy/.env.prod -f deploy/docker-compose.prod.yml run --rm auth npm run auth:migrate
+
+prod-apps: ## Start/rebuild production app services
+	docker compose --env-file deploy/.env.prod -f deploy/docker-compose.prod.yml up -d --build backend auth
+
+prod-logs: ## Tail production backend/auth logs
+	docker compose --env-file deploy/.env.prod -f deploy/docker-compose.prod.yml logs -f backend auth
+
+prod-restart: ## Restart/rebuild production app services
+	$(MAKE) prod-apps
+
+prod-down: ## Stop the production Docker Compose stack without deleting volumes
+	docker compose --env-file deploy/.env.prod -f deploy/docker-compose.prod.yml down
+
+prod-ps: ## Show production Docker Compose service status
+	docker compose --env-file deploy/.env.prod -f deploy/docker-compose.prod.yml ps
+
+prod-smoke: ## Run production API/auth smoke checks
+	curl https://api.brianito.com/health
+	curl https://auth.brianito.com/api/auth/ok
 
 backend-run: ## Run the Go backend
 	$(MAKE) -C backend-go run

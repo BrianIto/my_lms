@@ -105,41 +105,40 @@ https://auth.brianito.com/api/auth/callback/google
 
 ## Deploy
 
-From the repository root on the VPS:
+From the repository root on the VPS, start infrastructure first:
 
 ```bash
-docker compose --env-file deploy/.env.prod -f deploy/docker-compose.prod.yml up -d --build postgres redis otel-collector prometheus grafana
+make prod-infra
 ```
 
 Run backend migrations:
 
 ```bash
-docker compose --env-file deploy/.env.prod -f deploy/docker-compose.prod.yml run --rm postgres-migrate
+make prod-migrate
 ```
 
 Run Better Auth migrations:
 
 ```bash
-docker compose --env-file deploy/.env.prod -f deploy/docker-compose.prod.yml run --rm auth npm run auth:migrate
+make prod-auth-migrate
 ```
 
 Start app services:
 
 ```bash
-docker compose --env-file deploy/.env.prod -f deploy/docker-compose.prod.yml up -d --build backend auth
+make prod-apps
 ```
 
 Or start/rebuild everything:
 
 ```bash
-docker compose --env-file deploy/.env.prod -f deploy/docker-compose.prod.yml up -d --build
+make prod
 ```
 
 ## Smoke checks
 
 ```bash
-curl https://api.brianito.com/health
-curl https://auth.brianito.com/api/auth/ok
+make prod-smoke
 ```
 
 Then verify from the browser:
@@ -172,19 +171,25 @@ Grafana is preconfigured with Prometheus as the default datasource.
 View logs:
 
 ```bash
-docker compose --env-file deploy/.env.prod -f deploy/docker-compose.prod.yml logs -f backend auth
+make prod-logs
 ```
 
 Restart app services:
 
 ```bash
-docker compose --env-file deploy/.env.prod -f deploy/docker-compose.prod.yml up -d --build backend auth
+make prod-restart
+```
+
+Show service status:
+
+```bash
+make prod-ps
 ```
 
 Stop stack:
 
 ```bash
-docker compose --env-file deploy/.env.prod -f deploy/docker-compose.prod.yml down
+make prod-down
 ```
 
 Do not run `down -v` in production unless you intentionally want to remove Postgres/Redis/Grafana/Prometheus data.
@@ -192,9 +197,8 @@ Do not run `down -v` in production unless you intentionally want to remove Postg
 ## Local validation before deploy
 
 ```bash
-cd backend-go && make test
-cd ../auth_service && npm run typecheck && npm run build
-cd ../frontend-react && bun --bun run check && bun --bun run build
+make check
+make build
 ```
 
 ## Deferred
