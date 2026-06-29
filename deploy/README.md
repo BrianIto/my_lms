@@ -60,10 +60,12 @@ chmod 600 deploy/.env.prod
 Generate secure values:
 
 ```bash
-openssl rand -base64 32 # POSTGRES_PASSWORD
+openssl rand -hex 32    # POSTGRES_PASSWORD; keep URL-safe because it is embedded in DATABASE_URL
 openssl rand -base64 32 # BETTER_AUTH_SECRET
 openssl rand -base64 32 # GRAFANA_ADMIN_PASSWORD
 ```
+
+Do not use characters like `@`, `:`, `/`, `?`, or `#` in `POSTGRES_PASSWORD` unless you also URL-encode them in every database URL. The production Compose file builds `DATABASE_URL` from this value.
 
 Fill in:
 

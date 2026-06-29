@@ -119,8 +119,10 @@ Generate secrets on the VPS or a trusted local machine:
 
 ```bash
 openssl rand -base64 32 # BETTER_AUTH_SECRET
-openssl rand -base64 32 # POSTGRES_PASSWORD
+openssl rand -hex 32    # POSTGRES_PASSWORD; keep URL-safe because it is embedded in DATABASE_URL
 ```
+
+Do not use reserved URL characters like `@`, `:`, `/`, `?`, or `#` in `POSTGRES_PASSWORD` unless every database URL uses the URL-encoded form.
 
 ## Auth DB schema fix
 
