@@ -23,7 +23,7 @@ import {
 	DialogTrigger,
 } from "#/components/ui/dialog.tsx";
 import { Input } from "#/components/ui/input.tsx";
-import { getServerAuthState } from "#/lib/auth-session.ts";
+import { getAuthStateQueryOptions } from "#/lib/auth-session.ts";
 import { requestBetaAccess } from "#/lib/backend-api.ts";
 import {
 	formatBrazilianWhatsapp,
@@ -33,8 +33,10 @@ import {
 import { cn } from "#/utils/cn";
 
 export const Route = createFileRoute("/")({
-	beforeLoad: async () => {
-		const auth = await getServerAuthState();
+	beforeLoad: async ({ context }) => {
+		const auth = await context.queryClient.ensureQueryData(
+			getAuthStateQueryOptions(),
+		);
 
 		if (auth.isAuthenticated) {
 			throw redirect({ to: "/dashboard" });
