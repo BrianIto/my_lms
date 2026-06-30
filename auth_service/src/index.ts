@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
@@ -17,7 +18,85 @@ import { assertRuntimeEnv, env } from "./env.js";
 assertRuntimeEnv();
 await ensureBetaAccessTable();
 
+type LogLevel = "info" | "warn" | "error";
+
+function serializeError(error: unknown) {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+      cause: error.cause instanceof Error
+        ? {
+            name: error.cause.name,
+            message: error.cause.message,
+            stack: error.cause.stack,
+          }
+        : error.cause,
+    };
+  }
+
+  return { message: String(error) };
+}
+
+function log(level: LogLevel, message: string, metadata: Record<string, unknown> = {}) {
+  const line = JSON.stringify({
+    level,
+    message,
+    service: "auth-service",
+    environment: env.nodeEnv,
+    timestamp: new Date().toISOString(),
+    ...metadata,
+  });
+
+  if (level === "error") {
+    console.error(line);
+    return;
+  }
+  if (level === "warn") {
+    console.warn(line);
+    return;
+  }
+  console.log(line);
+}
+
+function getRequestMetadata(c: { req: { method: string; path: string; header: (name: string) => string | undefined } }) {
+  return {
+    method: c.req.method,
+    path: c.req.path,
+    requestId: c.req.header("x-request-id") ?? randomUUID(),
+    origin: c.req.header("origin"),
+    userAgent: c.req.header("user-agent"),
+    forwardedFor: c.req.header("x-forwarded-for"),
+  };
+}
+
 const app = new Hono();
+
+app.use("*", async (c, next) => {
+  const startedAt = performance.now();
+  const request = getRequestMetadata(c);
+  c.header("x-request-id", String(request.requestId));
+
+  try {
+    await next();
+    const durationMs = Math.round(performance.now() - startedAt);
+    const level = c.res.status >= 500 ? "error" : c.res.status >= 400 ? "warn" : "info";
+    log(level, "request completed", {
+      ...request,
+      status: c.res.status,
+      durationMs,
+    });
+  } catch (error) {
+    const durationMs = Math.round(performance.now() - startedAt);
+    log("error", "request failed", {
+      ...request,
+      durationMs,
+      error: serializeError(error),
+    });
+    throw error;
+  }
+});
 
 app.use(
   "/api/*",
@@ -43,7 +122,25 @@ app.post("/api/beta/allowlist", upsertBetaAccess);
 app.post("/api/beta/requests", createBetaAccessRequest);
 app.get("/api/beta/requests/:decision/:token", decideBetaAccessRequest);
 
-app.all("/api/auth/*", (c) => auth.handler(c.req.raw));
+app.all("/api/auth/*", async (c) => {
+  try {
+    return await auth.handler(c.req.raw);
+  } catch (error) {
+    log("error", "better-auth handler failed", {
+      ...getRequestMetadata(c),
+      error: serializeError(error),
+    });
+    throw error;
+  }
+});
+
+app.onError((error, c) => {
+  log("error", "unhandled route error", {
+    ...getRequestMetadata(c),
+    error: serializeError(error),
+  });
+  return c.json({ error: "internal server error" }, 500);
+});
 
 const server = serve(
   {
@@ -51,13 +148,13 @@ const server = serve(
     port: env.port,
   },
   (info) => {
-    console.log(`Auth service listening on http://localhost:${info.port}`);
-    console.log(`Better Auth mounted at ${env.betterAuthUrl}/api/auth`);
+    log("info", "auth service listening", { port: info.port });
+    log("info", "better auth mounted", { url: `${env.betterAuthUrl}/api/auth` });
   },
 );
 
 const shutdown = async (signal: NodeJS.Signals) => {
-  console.log(`${signal} received, shutting down...`);
+  log("info", "shutdown signal received", { signal });
   server.close();
   await closeDb();
   process.exit(0);
@@ -65,3 +162,10 @@ const shutdown = async (signal: NodeJS.Signals) => {
 
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
+process.on("unhandledRejection", (reason) => {
+  log("error", "unhandled promise rejection", { error: serializeError(reason) });
+});
+process.on("uncaughtException", (error) => {
+  log("error", "uncaught exception", { error: serializeError(error) });
+  process.exit(1);
+});
