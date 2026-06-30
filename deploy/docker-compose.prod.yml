@@ -60,6 +60,7 @@ services:
       DATABASE_SCHEMA: ${DATABASE_SCHEMA:-public}
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:-https://auth.brianito.com}
+      AUTH_COOKIE_DOMAIN: ${AUTH_COOKIE_DOMAIN:-.brianito.com}
       TRUSTED_ORIGINS: ${TRUSTED_ORIGINS:-https://learning.brianito.com,https://api.brianito.com,https://auth.brianito.com}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}

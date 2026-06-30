@@ -77,7 +77,7 @@ export function SignInDialog({
 				return;
 			}
 
-			//	window.location.assign(result.data.url);
+			window.location.assign(result.data.url);
 		} catch (error) {
 			setStatus({
 				state: "error",

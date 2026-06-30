@@ -36,7 +36,11 @@ export const getServerAuthState = createServerFn({ method: "GET" }).handler(
 
 		try {
 			const response = await fetch(getAuthSessionUrl(), {
-				headers: { cookie },
+				credentials: "include",
+				headers: {
+					accept: "application/json",
+					cookie,
+				},
 			});
 
 			if (!response.ok) {

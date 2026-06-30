@@ -50,6 +50,8 @@ BETTER_AUTH_SECRET="paste-generated-secret-here"
 BETTER_AUTH_URL="http://localhost:3000"
 PORT="3000"
 TRUSTED_ORIGINS="http://localhost:5173,http://localhost:3000"
+# Production split-subdomain deployments, for example auth.example.com + app.example.com:
+# AUTH_COOKIE_DOMAIN=".example.com"
 ```
 
 Do not commit `.env` with real secrets.
@@ -168,6 +170,7 @@ import { adminClient, organizationClient } from "better-auth/client/plugins";
 
 export const authClient = createAuthClient({
   baseURL: "https://auth.example.com",
+  fetchOptions: { credentials: "include" },
   plugins: [organizationClient(), adminClient()],
 });
 ```
@@ -192,6 +195,7 @@ Raw HTTP clients can call endpoints under `/api/auth/*` on this service, for exa
 ## Production notes
 
 - `advanced.useSecureCookies` is enabled automatically when `NODE_ENV=production`.
+- Cross-subdomain cookies are enabled for sibling trusted origins and can be pinned with `AUTH_COOKIE_DOMAIN`, e.g. `.brianito.com`.
 - Rate limiting is enabled and stored in the database.
 - Sessions are persisted in the database.
 - Keep `BETTER_AUTH_URL` set to the public origin of this service.

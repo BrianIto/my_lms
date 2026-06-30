@@ -24,6 +24,7 @@ export const env = {
   databaseSchema: process.env.DATABASE_SCHEMA ?? "public",
   betterAuthSecret: process.env.BETTER_AUTH_SECRET,
   betterAuthUrl: process.env.BETTER_AUTH_URL ?? "http://localhost:3000",
+  authCookieDomain: process.env.AUTH_COOKIE_DOMAIN,
   googleClientId: process.env.GOOGLE_CLIENT_ID,
   googleClientSecret: process.env.GOOGLE_CLIENT_SECRET,
   trustedOrigins: unique([

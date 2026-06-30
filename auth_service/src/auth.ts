@@ -4,6 +4,7 @@ import { admin } from "better-auth/plugins/admin";
 import { organization } from "better-auth/plugins/organization";
 import { openAPI } from "better-auth/plugins";
 import { evaluateBetaLoginAccess } from "./beta-access.js";
+import { getCrossSubDomainCookieConfig } from "./cookie-config.js";
 import { db, ensureDatabaseSchema } from "./db.js";
 import { env } from "./env.js";
 
@@ -95,6 +96,12 @@ export const auth = betterAuth({
   },
   advanced: {
     useSecureCookies: env.isProduction,
+    crossSubDomainCookies: getCrossSubDomainCookieConfig({
+      betterAuthUrl: env.betterAuthUrl,
+      trustedOrigins: env.trustedOrigins,
+      isProduction: env.isProduction,
+      cookieDomain: env.authCookieDomain,
+    }),
     ipAddress: {
       ipAddressHeaders: ["x-forwarded-for", "x-real-ip", "cf-connecting-ip"],
     },
