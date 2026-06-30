@@ -83,10 +83,13 @@ Keep:
 ```env
 DATABASE_SCHEMA=public
 BETTER_AUTH_URL=https://auth.brianito.com
+AUTH_SERVICE_URL=http://auth:3000
 TRUSTED_ORIGINS=https://learning.brianito.com,https://api.brianito.com,https://auth.brianito.com
 BETA_REQUEST_FROM="Brianito Learning <noreply@brianito.com>"
 BETA_REQUEST_ADMIN_EMAIL=contact@brianito.com
 ```
+
+`AUTH_SERVICE_URL` is used only by the Go backend inside Docker to validate Better Auth sessions. Keep it on the internal Compose DNS name (`http://auth:3000`); do not set it to `http://localhost:3000` in production.
 
 ## Vercel frontend env
 

@@ -90,6 +90,7 @@ HTTP_ADDR=:8080
 DATABASE_URL=postgres://app:${POSTGRES_PASSWORD}@postgres:5432/app?sslmode=disable
 REDIS_ADDR=redis:6379
 REDIS_PASSWORD=
+AUTH_SERVICE_URL=http://auth:3000
 OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4317
 OTEL_SERVICE_NAME=lms-backend
 WS_ALLOWED_ORIGINS=https://learning.brianito.com,https://auth.brianito.com
@@ -212,6 +213,7 @@ curl https://auth.brianito.com/api/auth/ok
 Also verify:
 
 - frontend sign-in works from `https://learning.brianito.com`;
+- backend logs show session validation through `AUTH_SERVICE_URL=http://auth:3000`, not `localhost:3000`;
 - backend rejects unauthenticated private routes;
 - backend enforces beta access server-side;
 - Redis-backed course cache works;

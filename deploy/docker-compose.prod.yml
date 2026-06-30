@@ -19,6 +19,7 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-app}?sslmode=disable
       REDIS_ADDR: ${REDIS_ADDR:-redis:6379}
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      AUTH_SERVICE_URL: ${AUTH_SERVICE_URL:-http://auth:3000}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-otel-collector:4317}
       OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-lms-backend}
       WS_ALLOWED_ORIGINS: ${WS_ALLOWED_ORIGINS:-https://learning.brianito.com,https://auth.brianito.com}
