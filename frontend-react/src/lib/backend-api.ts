@@ -34,8 +34,10 @@ export type EmailFirstSigninPreflight = {
 const authServiceURL =
 	import.meta.env.VITE_AUTH_URL?.replace(/\/$/, "") ?? "http://localhost:3000";
 const backendURL =
-	import.meta.env.VITE_BACKEND_URL?.replace(/\/$/, "") ??
-	"http://localhost:8080";
+	(import.meta.env.VITE_API_URL ?? import.meta.env.VITE_BACKEND_URL)?.replace(
+		/\/$/,
+		"",
+	) ?? "http://localhost:8080";
 
 function getApiError(payload: unknown, fallback: string) {
 	return typeof (payload as { error?: unknown } | null)?.error === "string"
