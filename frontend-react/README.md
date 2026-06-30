@@ -11,11 +11,14 @@ bun --bun run dev
 
 ## Environment
 
-The public beta-access form posts to the auth service so requests can be reviewed and approved into the Better Auth beta-access table. Override the auth-service origin when needed:
+The public beta-access form posts to the auth service so requests can be reviewed and approved into the Better Auth beta-access table. LMS course and progress requests call the Go backend. Override service origins when needed:
 
 ```bash
 VITE_AUTH_URL=http://localhost:3000
+VITE_API_URL=http://localhost:8080
 ```
+
+`VITE_API_URL` is the canonical backend API origin. `VITE_BACKEND_URL` is still accepted by the code as a legacy fallback, but production deploys should set `VITE_API_URL`.
 
 # Building For Production
 

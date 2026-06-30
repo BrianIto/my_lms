@@ -74,7 +74,7 @@ function DashboardView() {
 					{coursesQuery.isLoading ? (
 						<CourseSkeleton />
 					) : coursesQuery.isError ? (
-						<EmptyCourseCard message="Could not load the course catalog. Confirm the Go backend is running on VITE_BACKEND_URL." />
+						<EmptyCourseCard message="Could not load the course catalog. Confirm the Go backend is reachable and VITE_API_URL is configured." />
 					) : coursesWithProgress.length === 0 ? (
 						<EmptyCourseCard message="No published or beta courses are visible yet." />
 					) : (
