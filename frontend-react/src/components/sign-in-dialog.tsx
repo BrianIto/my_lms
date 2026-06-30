@@ -52,7 +52,6 @@ export function SignInDialog({
 			const result = await authClient.signIn.social({
 				provider: "google",
 				callbackURL,
-				disableRedirect: true,
 			});
 
 			if (result.error) {
@@ -78,7 +77,7 @@ export function SignInDialog({
 				return;
 			}
 
-			window.location.assign(result.data.url);
+			//	window.location.assign(result.data.url);
 		} catch (error) {
 			setStatus({
 				state: "error",
