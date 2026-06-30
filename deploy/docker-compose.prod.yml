@@ -31,7 +31,7 @@ services:
       traefik.http.routers.lms-backend.rule: Host(`${API_HOST:-api.brianito.com}`)
       traefik.http.routers.lms-backend.entrypoints: websecure
       traefik.http.routers.lms-backend.tls: "true"
-      traefik.http.routers.lms-backend.tls.certresolver: ${TRAEFIK_CERT_RESOLVER:-letsencrypt}
+      traefik.http.routers.lms-backend.tls.certresolver: ${TRAEFIK_CERT_RESOLVER:-myresolver}
       traefik.http.routers.lms-backend.middlewares: lms-secure-headers@docker,lms-compress@docker
       traefik.http.services.lms-backend.loadbalancer.server.port: "8080"
       traefik.http.services.lms-backend.loadbalancer.healthcheck.path: /health
@@ -78,7 +78,7 @@ services:
       traefik.http.routers.lms-auth.rule: Host(`${AUTH_HOST:-auth.brianito.com}`)
       traefik.http.routers.lms-auth.entrypoints: websecure
       traefik.http.routers.lms-auth.tls: "true"
-      traefik.http.routers.lms-auth.tls.certresolver: ${TRAEFIK_CERT_RESOLVER:-letsencrypt}
+      traefik.http.routers.lms-auth.tls.certresolver: ${TRAEFIK_CERT_RESOLVER:-myresolver}
       traefik.http.routers.lms-auth.middlewares: lms-secure-headers@docker,lms-compress@docker
       traefik.http.services.lms-auth.loadbalancer.server.port: "3000"
       traefik.http.services.lms-auth.loadbalancer.healthcheck.path: /api/auth/ok
