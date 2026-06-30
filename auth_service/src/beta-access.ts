@@ -219,14 +219,71 @@ export function hasAdminSession(session: unknown) {
   return isAdminRole(user?.role);
 }
 
-async function requireBetaAllowlistAdmin(c: Context) {
+type AllowlistSessionResolver = (headers: Headers) => Promise<unknown>;
+
+type BetaAllowlistAdminDeps = {
+  getSession?: AllowlistSessionResolver;
+  getFallbackSession?: AllowlistSessionResolver;
+};
+
+export async function getDirectBetterAuthSession(headers: Headers) {
   const { auth } = await import("./auth.js");
-  const session = await auth.api.getSession({ headers: c.req.raw.headers });
-  if (!session?.user) {
-    return { ok: false as const, response: c.json({ error: "authentication required" }, 401) };
+  return auth.api.getSession({ headers });
+}
+
+export async function getBetterAuthHandlerSession(headers: Headers) {
+  const cookie = headers.get("cookie");
+  if (!cookie) return null;
+
+  const { auth } = await import("./auth.js");
+  const sessionRequestHeaders = new Headers();
+  sessionRequestHeaders.set("cookie", cookie);
+
+  const userAgent = headers.get("user-agent");
+  if (userAgent) sessionRequestHeaders.set("user-agent", userAgent);
+  for (const headerName of ["x-forwarded-for", "x-real-ip", "cf-connecting-ip"]) {
+    const value = headers.get(headerName);
+    if (value) sessionRequestHeaders.set(headerName, value);
+  }
+
+  const response = await auth.handler(
+    new Request(`${env.betterAuthUrl.replace(/\/$/, "")}/api/auth/get-session`, {
+      method: "GET",
+      headers: sessionRequestHeaders,
+    }),
+  );
+
+  if (!response.ok) return null;
+  return response.json().catch(() => null);
+}
+
+export async function resolveBetaAllowlistAdmin(headers: Headers, deps: BetaAllowlistAdminDeps = {}): Promise<
+  | { ok: true }
+  | { ok: false; status: 401 | 403; error: string }
+> {
+  const getSession = deps.getSession ?? getDirectBetterAuthSession;
+  const getFallbackSession = deps.getFallbackSession ?? getBetterAuthHandlerSession;
+  let session: unknown = null;
+  try {
+    session = await getSession(headers);
+  } catch {
+    session = null;
+  }
+  session ??= await getFallbackSession(headers);
+
+  if (!(session as { user?: unknown } | null)?.user) {
+    return { ok: false as const, status: 401, error: "authentication required" };
   }
   if (!hasAdminSession(session)) {
-    return { ok: false as const, response: c.json({ error: "admin access required" }, 403) };
+    return { ok: false as const, status: 403, error: "admin access required" };
+  }
+  return { ok: true as const };
+}
+
+async function requireBetaAllowlistAdmin(c: Context) {
+  const admin = await resolveBetaAllowlistAdmin(c.req.raw.headers);
+  if (!admin.ok) {
+    return { ok: false as const, response: c.json({ error: admin.error }, admin.status) };
   }
   return { ok: true as const };
 }

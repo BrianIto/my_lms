@@ -107,7 +107,7 @@ function LessonView() {
 				</Card>
 			) : null}
 			{!course || !lesson ? null : (
-				<div className="grid gap-5 lg:grid-cols-[1fr_340px]">
+				<div className="grid gap-4 lg:grid-cols-[1fr_340px] lg:gap-5">
 					<section className="flex flex-col gap-4">
 						<YouTubeLessonPlayer
 							ref={playerRef}
@@ -126,7 +126,7 @@ function LessonView() {
 									{(lesson.status ?? "not_started").replace("_", " ")}
 								</CardDescription>
 							</CardHeader>
-							<CardContent className="grid gap-3 md:grid-cols-3">
+							<CardContent className="grid gap-3 sm:grid-cols-3">
 								<Button
 									variant="outline"
 									disabled={progressMutation.isPending}
@@ -190,8 +190,8 @@ function LessonView() {
 											className="rounded-lg border border-white/10 bg-white/[0.02] p-3 text-left text-sm duration-200 hover:border-amber/25 hover:shadow-[0_0_16px_rgba(255,186,90,0.05)] focus-visible:border-amber/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber/30 disabled:cursor-not-allowed disabled:opacity-60"
 											aria-label={`Seek to ${point.title} at ${formatTimestamp(point.timestampSeconds)}`}
 										>
-											<span className="flex items-center justify-between gap-3">
-												<span className="font-medium text-white">
+											<span className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+												<span className="break-words font-medium text-white">
 													{point.title}
 												</span>
 												<Badge variant="outline">
@@ -246,10 +246,10 @@ function LessonView() {
 												key={item.id}
 												to="/courses/$slug/lessons/$lessonId"
 												params={{ slug: course.slug, lessonId: item.id }}
-												className="flex items-center justify-between rounded-lg border border-white/10 bg-white/[0.02] p-3 no-underline hover:border-amber/25 data-[current=true]:border-amber/30 data-[current=true]:shadow-[inset_0_0_18px_rgba(255,186,90,0.05)]"
+												className="flex flex-col gap-2 rounded-lg border border-white/10 bg-white/[0.02] p-3 no-underline hover:border-amber/25 sm:flex-row sm:items-center sm:justify-between data-[current=true]:border-amber/30 data-[current=true]:shadow-[inset_0_0_18px_rgba(255,186,90,0.05)]"
 												data-current={isCurrent}
 											>
-												<span className="flex items-center gap-2 text-sm text-white">
+												<span className="flex min-w-0 items-start gap-2 text-sm text-white sm:items-center">
 													{item.status === "completed" ? (
 														<RiCheckboxCircleLine
 															className="size-4 text-amber"

@@ -205,7 +205,7 @@ export const YouTubeLessonPlayer = forwardRef<
 			{videoId ? (
 				<div
 					ref={playerContainerRef}
-					className="min-h-[480px] w-full [&_iframe]:aspect-video [&_iframe]:h-full [&_iframe]:w-full"
+					className="aspect-video w-full md:min-h-[480px] [&_iframe]:aspect-video [&_iframe]:h-full [&_iframe]:w-full"
 					title={title}
 				/>
 			) : (

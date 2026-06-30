@@ -6,6 +6,7 @@ import {
   getEmailFirstSigninPreflight,
   hasAdminSession,
   listBetaAccessEntries,
+  resolveBetaAllowlistAdmin,
   submitBetaAccessRequest,
   upsertBetaAccessEntry,
 } from "../src/beta-access.js";
@@ -387,4 +388,41 @@ test("allowlist admin helper only accepts Better Auth admin role", () => {
   assert.equal(hasAdminSession({ user: { role: "member" } }), false);
   assert.equal(hasAdminSession({ user: {} }), false);
   assert.equal(hasAdminSession(null), false);
+});
+
+test("allowlist admin auth falls back to the Better Auth handler when direct session lookup is empty", async () => {
+  const headers = new Headers({ cookie: "better-auth.session_token=signed-session" });
+  let fallbackCalled = false;
+
+  const result = await resolveBetaAllowlistAdmin(headers, {
+    getSession: async () => null,
+    getFallbackSession: async (receivedHeaders) => {
+      fallbackCalled = true;
+      assert.equal(receivedHeaders.get("cookie"), "better-auth.session_token=signed-session");
+      return { user: { role: "admin" }, session: { id: "session-1" } };
+    },
+  });
+
+  assert.deepEqual(result, { ok: true });
+  assert.equal(fallbackCalled, true);
+});
+
+test("allowlist admin auth preserves 401 for anonymous users and 403 for non-admin sessions", async () => {
+  assert.deepEqual(
+    await resolveBetaAllowlistAdmin(new Headers(), {
+      getSession: async () => null,
+      getFallbackSession: async () => null,
+    }),
+    { ok: false, status: 401, error: "authentication required" },
+  );
+
+  assert.deepEqual(
+    await resolveBetaAllowlistAdmin(new Headers({ cookie: "better-auth.session_token=student" }), {
+      getSession: async () => ({ user: { role: "student" }, session: { id: "session-2" } }),
+      getFallbackSession: async () => {
+        throw new Error("fallback should not be called when direct session exists");
+      },
+    }),
+    { ok: false, status: 403, error: "admin access required" },
+  );
 });

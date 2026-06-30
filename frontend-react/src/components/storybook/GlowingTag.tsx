@@ -29,7 +29,7 @@ const GlowingTag: React.FC<PropsWithChildren<Props>> = ({
 		>
 			<div
 				className={cn(
-					"rounded-full bg-[#333] backdrop-blur-sm font-display w-full tracking-tight pt-0.5 flex items-center [.sm]:text-[16px] px-[12px] relative [.sm]:h-[28px] [.lg]:h-[44px] [.lg]:text-[20px] [.lg]:px-[29px] [.lg]:font-sans flex justify-center",
+					"rounded-full bg-[#333] backdrop-blur-sm font-display w-full tracking-tight pt-0.5 flex items-center [.sm]:text-[16px] px-[12px] relative [.sm]:h-[28px] [.lg]:h-[44px] [.lg]:text-[16px]  [.lg]:px-[29px] [.lg]:font-sans flex justify-center",
 					{
 						sm: size === "sm",
 						lg: size === "lg",

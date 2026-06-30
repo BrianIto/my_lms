@@ -16,7 +16,7 @@ export function LmsShell({
 	return (
 		<main
 			className={cn(
-				"relative min-h-screen overflow-hidden bg-background px-4 pb-4 pt-22 text-foreground sm:pb-6",
+				"relative min-h-screen overflow-x-hidden bg-background px-3 pb-4 pt-20 text-foreground sm:px-4 sm:pb-6 sm:pt-22",
 				className,
 			)}
 		>
@@ -26,7 +26,7 @@ export function LmsShell({
 			<div className="pointer-events-none fixed inset-y-0 right-0 -z-10 w-[34vw] origin-right border-l border-white/10 bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] bg-[size:16px_16px] opacity-20 md:w-[28vw] md:bg-[size:56px_56px] md:opacity-30" />
 			<div className="pointer-events-none fixed inset-x-[34vw] top-0 -z-10 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent md:inset-x-[28vw]" />
 			<svg
-				className="hero-orbit pointer-events-none fixed left-1/2 top-[210px] -z-10 w-[420px] opacity-35"
+				className="hero-orbit pointer-events-none fixed left-1/2 top-[190px] -z-10 w-[300px] opacity-25 sm:w-[420px] sm:opacity-35"
 				viewBox="0 0 44 44"
 				fill="none"
 				xmlns="http://www.w3.org/2000/svg"
@@ -50,16 +50,16 @@ export function LmsShell({
 					strokeDasharray="0.35 1.4"
 				/>
 			</svg>
-			<div className="mx-auto flex w-full max-w-[1180px] flex-col gap-8 md:gap-10">
-				<section className="grid gap-8 lg:grid-cols-[1fr_320px] lg:items-end">
-					<div className="flex flex-col gap-4">
-						<div className="flex w-fit items-center gap-2 rounded-full bg-amber/5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-white/50">
+			<div className="mx-auto flex w-full max-w-[1180px] flex-col gap-6 sm:gap-8 md:gap-10">
+				<section className="grid gap-6 lg:grid-cols-[1fr_320px] lg:items-end">
+					<div className="flex min-w-0 flex-col gap-3 sm:gap-4">
+						<div className="flex w-fit max-w-full items-center gap-2 rounded-full bg-amber/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/50 sm:text-xs sm:tracking-[0.18em]">
 							{eyebrow}
 						</div>
-						<h1 className="max-w-[760px] font-display text-[52px] leading-[0.94] tracking-tighter text-white [text-shadow:0px_12px_88px_rgba(255,255,255,0.18)] md:text-[76px]">
+						<h1 className="max-w-[760px] text-wrap font-display text-[clamp(2.55rem,13vw,3.25rem)] leading-[0.94] tracking-tighter text-white [text-shadow:0px_12px_88px_rgba(255,255,255,0.18)] md:text-[76px]">
 							{title}
 						</h1>
-						<p className="max-w-[680px] text-[15px] leading-7 tracking-tight text-[#bfbfbf]">
+						<p className="max-w-[680px] text-[14px] leading-6 tracking-tight text-[#bfbfbf] sm:text-[15px] sm:leading-7">
 							{description}
 						</p>
 					</div>

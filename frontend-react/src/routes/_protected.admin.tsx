@@ -109,7 +109,7 @@ function AdminView() {
 			title="Administrative Dashboard"
 			description="Manage beta access and author the normalized course catalog with dialog-first CRUD flows."
 		>
-			<div className="grid gap-4 md:grid-cols-3">
+			<div className="grid gap-3 sm:grid-cols-3 sm:gap-4">
 				<MetricCard
 					icon={RiFileVideoLine}
 					label="Courses"
@@ -130,7 +130,7 @@ function AdminView() {
 				/>
 			</div>
 
-			<div className="grid lg:grid-cols-[1.08fr_0.92fr]">
+			<div className="grid gap-4 lg:grid-cols-[1.08fr_0.92fr] lg:gap-0">
 				<CourseInventoryCard
 					courses={courses}
 					isLoading={coursesQuery.isLoading}
@@ -152,7 +152,7 @@ function CourseInventoryCard({
 	isLoading: boolean;
 }) {
 	return (
-		<Card className="border-white/15 bg-background z-[2] lg:border-r-0 shadow-[inset_0_0_24px_rgba(255,186,90,0.03)]">
+		<Card className="z-[2] border-white/15 bg-background shadow-[inset_0_0_24px_rgba(255,186,90,0.03)] lg:border-r-0">
 			<CardHeader>
 				<CardTitle className="font-display text-3xl tracking-tighter text-white">
 					Course inventory
@@ -235,7 +235,7 @@ function AdminCourseRow({ course }: { course: CourseCard }) {
 
 	return (
 		<div className="rounded-lg border border-white/10 bg-white/[0.02] p-4">
-			<div className="flex gap-3 md:gap-4">
+			<div className="flex min-w-0 gap-2 md:gap-4">
 				<div className="hidden shrink-0 flex-col gap-1 md:flex">
 					<Button
 						variant="ghost"
@@ -264,7 +264,7 @@ function AdminCourseRow({ course }: { course: CourseCard }) {
 				</div>
 
 				<div className="min-w-0 flex-1">
-					<div className="flex items-start gap-2 md:items-center">
+					<div className="flex min-w-0 items-start gap-2 md:items-center">
 						<Button
 							variant="ghost"
 							size="icon-xs"
@@ -283,14 +283,14 @@ function AdminCourseRow({ course }: { course: CourseCard }) {
 						</Button>
 						<div className="min-w-0 flex-1">
 							<div className="flex flex-wrap items-center gap-2">
-								<h2 className="font-display text-2xl tracking-tighter text-white">
+								<h2 className="break-words font-display text-[1.55rem] leading-none tracking-tighter text-white sm:text-2xl">
 									{course.title}
 								</h2>
 								<Badge variant="outline" className="border-white/20">
 									{course.status}
 								</Badge>
 							</div>
-							<p className="mt-2 max-w-[720px] text-sm leading-6 text-muted-foreground">
+							<p className="mt-2 max-w-[720px] break-words text-sm leading-6 text-muted-foreground">
 								{course.description}
 							</p>
 							<div className="mt-2 flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.16em] text-muted-foreground">
@@ -404,7 +404,7 @@ function CourseOutlineAdmin({ course }: { course: Course }) {
 								sort {module.sortOrder} · {module.lessons.length} lessons
 							</p>
 						</div>
-						<div className="flex items-center gap-2">
+						<div className="flex flex-wrap items-center gap-2 sm:justify-end">
 							<LessonDialog courseSlug={course.slug} moduleId={module.id} />
 							<DeleteModuleDialog
 								courseSlug={course.slug}
@@ -429,7 +429,7 @@ function CourseOutlineAdmin({ course }: { course: Course }) {
 										bookmarks
 									</p>
 								</div>
-								<div className="flex items-center gap-2">
+								<div className="flex flex-wrap items-center gap-2 sm:justify-end">
 									<SequenceDialog courseSlug={course.slug} lesson={lesson} />
 									<DeleteLessonDialog
 										courseSlug={course.slug}
@@ -1292,7 +1292,7 @@ function BetaAllowlistCard({
 	}
 
 	return (
-		<Card className="border-white/15 border-t-0 lg:border-t bg-background/85">
+		<Card className="border-white/15 bg-background/85 lg:border-t">
 			<CardHeader>
 				<CardTitle className="font-display text-3xl tracking-tighter text-white">
 					Beta allowlist
@@ -1357,8 +1357,8 @@ function BetaAllowlistCard({
 							key={user.id}
 							className="grid gap-3 rounded-lg border border-white/10 bg-white/[0.02] p-3 sm:grid-cols-[1fr_150px] sm:items-center"
 						>
-							<div className="flex flex-col gap-1">
-								<span className="text-sm font-medium text-white">
+							<div className="min-w-0 flex flex-col gap-1">
+								<span className="break-all text-sm font-medium text-white">
 									{user.email}
 								</span>
 								<span className="text-xs uppercase tracking-[0.16em] text-muted-foreground">

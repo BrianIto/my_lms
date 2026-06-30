@@ -77,6 +77,56 @@ function jsonResponse(payload: unknown) {
 	});
 }
 
+describe("auth service beta allowlist API", () => {
+	beforeEach(() => {
+		vi.resetModules();
+		vi.stubEnv("VITE_AUTH_URL", "https://auth.brianito.com/");
+	});
+
+	afterEach(() => {
+		vi.unstubAllEnvs();
+		vi.restoreAllMocks();
+	});
+
+	test("uses VITE_AUTH_URL and includes credentials for allowlist reads and writes", async () => {
+		const requested: Array<{ url: string; init?: RequestInit }> = [];
+		const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+			requested.push({ url: String(input), init });
+			if (init?.method === "POST") {
+				return jsonResponse({
+					id: "beta-1",
+					email: "student@example.com",
+					user_id: null,
+					status: "active",
+					created_at: "2026-06-30T00:00:00.000Z",
+					updated_at: "2026-06-30T00:00:00.000Z",
+				});
+			}
+			return jsonResponse({ entries: [] });
+		});
+		vi.stubGlobal("fetch", fetchMock);
+
+		const api = await import("./backend-api");
+		await api.listBetaAllowlist();
+		await api.upsertBetaAllowlistEntry({ email: "student@example.com", status: "active" });
+
+		expect(requested).toEqual([
+			{
+				url: "https://auth.brianito.com/api/beta/allowlist",
+				init: { credentials: "include" },
+			},
+			{
+				url: "https://auth.brianito.com/api/beta/allowlist",
+				init: expect.objectContaining({
+					method: "POST",
+					credentials: "include",
+					headers: { "Content-Type": "application/json" },
+				}),
+			},
+		]);
+	});
+});
+
 describe("backend API base URL", () => {
 	beforeEach(() => {
 		vi.resetModules();

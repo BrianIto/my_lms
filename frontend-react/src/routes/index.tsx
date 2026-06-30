@@ -224,7 +224,7 @@ function Home() {
 	const isLoading = requestState.status === "loading";
 
 	return (
-		<main className="relative min-h-screen overflow-hidden bg-background px-4 text-foreground">
+		<main className="relative min-h-screen overflow-x-hidden bg-background px-3 text-foreground sm:px-4">
 			<div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_50%_24%,rgba(255,186,90,0.12),transparent_27%),radial-gradient(circle_at_50%_72%,rgba(255,255,255,0.055),transparent_34%)]" />
 			<div className="pointer-events-none fixed inset-y-0 left-0 -z-10 w-[30vw] border-r border-white/10 bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] bg-[size:16px_16px] opacity-30 md:bg-[size:56px_56px]" />
 			<div className="pointer-events-none fixed inset-y-0 right-0 -z-10 w-[30vw] border-l border-white/10 bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] bg-[size:16px_16px] opacity-20 md:bg-[size:56px_56px]" />
@@ -232,14 +232,14 @@ function Home() {
 			<div
 				id="hero-section"
 				ref={heroRef}
-				className="relative mx-auto flex h-screen max-w-[980px] flex-col flex-wrap items-center justify-center gap-3 text-center"
+				className="relative mx-auto flex min-h-[100svh] max-w-[980px] flex-col items-center justify-center gap-3 py-8 text-center sm:py-10"
 			>
-				<div className="relative z-10 mb-2 flex w-full justify-center -mt-14 md:-mt-32 lg:mb-6">
-					<CourseLogo className="mb-4 w-[90px]" />
+				<div className="relative z-10 mb-1 flex w-full justify-center md:-mt-24 lg:mb-6">
+					<CourseLogo className="mb-2 w-[74px] sm:mb-4 sm:w-[90px]" />
 				</div>
 
 				<svg
-					className="rotate pointer-events-none absolute w-9/12 md:w-96"
+					className="rotate pointer-events-none absolute w-[78vw] max-w-[320px] md:w-96 md:max-w-none"
 					viewBox="0 0 44 44"
 					fill="none"
 					xmlns="http://www.w3.org/2000/svg"
@@ -263,27 +263,27 @@ function Home() {
 					/>
 				</svg>
 
-				<div className="relative z-10 max-w-md md:max-w-lg lg:max-w-3xl">
-					<div className="marquee-container mb-12">
+				<div className="relative z-10 w-full max-w-md md:max-w-lg lg:max-w-3xl">
+					<div className="marquee-container mb-7 sm:mb-12">
 						<TagMarquee areas={courseSignals} />
 					</div>
 
 					<div className="text-center">
-						<h1 className="animated-text mb-[-31px] font-display text-[52px] tracking-tighter text-[#8C8C8C] md:mb-[-37px] lg:text-[76px]">
+						<h1 className="animated-text mb-[-22px] font-display text-[34px] tracking-tighter text-[#8C8C8C] lg:mb-[-37px] lg:text-[76px]">
 							Your Tactical course in
 						</h1>
-						<h1 className="animated-text mt-2 font-display text-[52px] tracking-tighter text-white [text-shadow:0px_12px_88px_rgba(255,255,255,0.25)] md:mt-0 lg:text-[76px]">
+						<h1 className="animated-text mt-2 font-display text-[34px] tracking-tighter text-white [text-shadow:0px_12px_88px_rgba(255,255,255,0.25)] lg:mt-0 lg:text-[76px]">
 							Agentic Engineering.
 						</h1>
 					</div>
 
-					<div className="mx-auto mt-6 max-w-[620px] text-center text-[14px] leading-6 tracking-tight text-white/75 md:mt-8 md:text-[15px]">
+					<div className="mx-auto mt-3 max-w-[620px] text-center text-[13px] leading-6 tracking-tight text-white/75 sm:text-[14px] md:mt-8 md:text-[15px]">
 						A course for shipping agent systems with tools, evals, memory,
 						guardrails, and production constraints. Not available yet — request
 						access for the beta cohort.
 					</div>
 
-					<div className="mx-auto mt-12 flex w-fit flex-col items-center justify-center gap-4 md:flex-row md:gap-8">
+					<div className="mx-auto mt-7 flex w-full flex-col items-center justify-center gap-3 sm:mt-12 md:w-fit md:flex-row md:gap-8">
 						<Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
 							<DialogTrigger asChild>
 								<GlowingTag size="lg">
@@ -321,7 +321,7 @@ function Home() {
 					</div>
 				</div>
 
-				<div className="course-footnote absolute bottom-8 max-w-2xl px-8 text-center text-[14px] leading-6 text-white/45 lg:max-w-4xl">
+				<div className="hidden lg:flex course-footnote relative mt-7 max-w-2xl px-2 pb-2 text-center text-[12px] leading-5 text-white/45 sm:text-[14px] sm:leading-6 md:absolute md:bottom-8 md:mt-0 md:px-8 md:pb-0 lg:max-w-4xl">
 					this course is built for engineers who want tactics over hype: agent
 					loops, evaluations, system boundaries, and the judgment to ship
 					reliably.
@@ -359,7 +359,7 @@ function BetaAccessDialog({
 	onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
 	return (
-		<DialogContent className="max-w-[560px] overflow-hidden rounded-[28px] border-white/20 bg-background/95 p-0 shadow-[0_26px_140px_rgba(0,0,0,0.82),0_0_90px_rgba(255,186,90,0.08)]">
+		<DialogContent className="max-h-[calc(100svh-1rem)] max-w-[560px] overflow-hidden overflow-y-auto rounded-[24px] border-white/20 bg-background/95 p-0 shadow-[0_26px_140px_rgba(0,0,0,0.82),0_0_90px_rgba(255,186,90,0.08)] sm:rounded-[28px]">
 			<div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,186,90,0.09),transparent_34%),radial-gradient(circle_at_50%_70%,rgba(255,255,255,0.06),transparent_44%)]" />
 			<div className="pointer-events-none absolute inset-y-0 left-0 z-0 w-1/3 border-r border-white/10 bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] bg-[size:16px_16px] opacity-25" />
 			<div className="pointer-events-none absolute inset-y-0 right-0 z-0 w-1/3 border-l border-white/10 bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] bg-[size:16px_16px] opacity-20" />
@@ -388,13 +388,13 @@ function BetaAccessDialog({
 				/>
 			</svg>
 
-			<div className="relative z-10 px-6 pb-6 pt-8 sm:px-8 sm:pb-8">
+			<div className="relative z-10 px-4 pb-5 pt-7 sm:px-8 sm:pb-8 sm:pt-8">
 				<DialogHeader className="mx-auto max-w-[430px] gap-3 pr-0 text-center">
 					<div className="mx-auto flex w-fit items-center gap-2 rounded-full  border-white/15 bg-background/20 px-3 py-1 text-[11px] uppercase tracking-[0.2em] text-white/50">
 						<span className="size-1.5 rounded-full bg-green-500 shadow-lg" />
 						open cohort intake
 					</div>
-					<DialogTitle className="text-[42px] leading-[0.9] md:text-[52px]">
+					<DialogTitle className="text-[clamp(2.25rem,11vw,2.625rem)] leading-[0.9] md:text-[52px]">
 						<span className="block text-[#8c8c8c]">Request</span>
 						<span className="block text-white [text-shadow:0px_12px_88px_rgba(255,255,255,0.22)]">
 							beta access.
@@ -541,12 +541,12 @@ function BetaAccessDialog({
 					)}
 				</div>
 
-				<div className="mt-6 grid gap-2 border-t border-white/10 pt-5 text-[12px] leading-5 text-white/45 sm:grid-cols-3">
+				<div className="mt-6 grid gap-2 border-t border-white/10 pt-5 text-center text-[12px] leading-5 text-white/45 sm:grid-cols-3">
 					<p>Requests are saved for review.</p>
-					<p className="text-center">
-						Approved emails are linked to beta access.
+					<p>Approved emails are linked to beta access.</p>
+					<p className="sm:text-right">
+						We’ll notify you by email or WhatsApp.
 					</p>
-					<p className="text-right">We’ll notify you by email or WhatsApp.</p>
 				</div>
 			</div>
 		</DialogContent>
