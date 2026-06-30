@@ -3,6 +3,8 @@ package config
 
 import (
 	"fmt"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/caarlos0/env/v11"
@@ -29,5 +31,24 @@ func Load() (Config, error) {
 	if err := env.Parse(&cfg); err != nil {
 		return Config{}, fmt.Errorf("parse env config: %w", err)
 	}
+	if err := cfg.validate(); err != nil {
+		return Config{}, err
+	}
 	return cfg, nil
+}
+
+func (c Config) validate() error {
+	if strings.EqualFold(c.Env, "production") && isLocalhostURL(c.AuthServiceURL) {
+		return fmt.Errorf("AUTH_SERVICE_URL must point to the auth service in production, got %q", c.AuthServiceURL)
+	}
+	return nil
+}
+
+func isLocalhostURL(raw string) bool {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return false
+	}
+	host := strings.ToLower(u.Hostname())
+	return host == "localhost" || host == "127.0.0.1" || host == "::1"
 }

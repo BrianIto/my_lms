@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -233,6 +234,44 @@ func TestProgressRequiresAuthentication(t *testing.T) {
 	r.ServeHTTP(w, req)
 	if w.Code != http.StatusUnauthorized {
 		t.Fatalf("progress update without auth status=%d body=%s", w.Code, w.Body.String())
+	}
+}
+
+func TestProgressAuthUsesConfiguredAuthServiceURLAndForwardsCookie(t *testing.T) {
+	const sessionCookie = "better-auth.session_token=configured-service"
+	var sessionChecks atomic.Int32
+	var betaChecks atomic.Int32
+	auth := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("Cookie"); got != sessionCookie {
+			t.Fatalf("forwarded Cookie = %q, want %q", got, sessionCookie)
+		}
+		switch r.URL.Path {
+		case "/api/auth/get-session":
+			sessionChecks.Add(1)
+			_, _ = w.Write([]byte(`{"user":{"id":"u1","email":"student@example.com"},"session":{"id":"s1"}}`))
+		case "/api/beta/access":
+			betaChecks.Add(1)
+			_, _ = w.Write([]byte(`{"beta_access":true}`))
+		default:
+			t.Fatalf("unexpected auth service path %q", r.URL.Path)
+		}
+	}))
+	defer auth.Close()
+
+	repo := newHandlerRepo()
+	repo.courses["building-with-ai"] = repository.CourseRow{ID: "c1", Slug: "building-with-ai", Title: "Building", Description: "D", Status: "beta"}
+	repo.lessons["c1"] = []repository.LessonRow{{ID: "l1", ModuleID: "m1", Title: "Lesson", DurationSeconds: 60}}
+	r := testRouter(repo, auth.URL, false)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/courses/building-with-ai/progress", nil)
+	req.Header.Set("Cookie", sessionCookie)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("progress status=%d body=%s", w.Code, w.Body.String())
+	}
+	if sessionChecks.Load() != 1 || betaChecks.Load() != 1 {
+		t.Fatalf("auth service calls: session=%d beta=%d, want one each", sessionChecks.Load(), betaChecks.Load())
 	}
 }
 
