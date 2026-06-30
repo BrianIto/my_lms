@@ -54,6 +54,10 @@ export const auth = betterAuth({
   session: {
     storeSessionInDatabase: true,
   },
+  account: {
+    storeStateStrategy: "database",
+    skipStateCookieCheck: true,
+  },
   rateLimit: {
     enabled: true,
     storage: "database",
