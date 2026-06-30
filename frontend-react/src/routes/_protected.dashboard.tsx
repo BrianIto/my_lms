@@ -69,7 +69,7 @@ function DashboardView() {
 			}
 			description="A calm cockpit for course progress, next videos, and study momentum — focused on what to watch, review, and complete next."
 		>
-			<div className="grid items-start lg:grid-cols-[1fr_340px]">
+			<div className="grid gap-4 items-start lg:grid-cols-[1fr_340px] lg:gap-0">
 				<section className="grid grid-cols-1">
 					{coursesQuery.isLoading ? (
 						<CourseSkeleton />
@@ -175,7 +175,7 @@ function DashboardView() {
 
 function CourseCardItem({ course }: { course: CourseCard }) {
 	return (
-		<Card className="rise-in border-white/15 bg-background/85 border-0 border-l first-of-type:border-t border-r first-of-type:border-r-0 border-b duration-200 hover:border-white/25 hover:shadow-[0_0_18px_rgba(255,255,255,0.08)]">
+		<Card className="rise-in border-white/15 bg-background/85 border-0 border-l first-of-type:border-t border-r lg:first-of-type:border-r-0 border-b duration-200 hover:border-white/25 hover:shadow-[0_0_18px_rgba(255,255,255,0.08)]">
 			<CardHeader>
 				<CardTitle className="font-display text-4xl tracking-tighter text-white">
 					{course.title}
@@ -210,7 +210,7 @@ function CourseCardItem({ course }: { course: CourseCard }) {
 				<Progress value={course.progress ?? 0} />
 			</CardContent>
 			<CardFooter className="justify-between border-t border-white/10">
-				<span className="text-sm text-muted-foreground">
+				<span className="text-sm leading-6 text-muted-foreground">
 					Next: open the outline and continue the sequence.
 				</span>
 				<Button asChild>

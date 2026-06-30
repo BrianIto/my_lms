@@ -85,7 +85,7 @@ function CourseView() {
 				</Card>
 			) : null}
 			{course ? (
-				<div className="grid gap-5 lg:grid-cols-[1fr_330px]">
+				<div className="grid gap-4 lg:grid-cols-[1fr_330px] lg:gap-5">
 					<section className="flex flex-col gap-4">
 						{course.modules.map((module, moduleIndex) => (
 							<Card
@@ -114,7 +114,7 @@ function CourseView() {
 											params={{ slug: course.slug, lessonId: lesson.id }}
 											className="group grid gap-3 rounded-lg border border-white/10 bg-white/[0.02] p-4 no-underline duration-200 hover:border-amber/25 hover:shadow-[0_0_16px_rgba(255,186,90,0.05)] md:grid-cols-[1fr_auto] md:items-center"
 										>
-											<div className="flex items-center gap-3">
+											<div className="flex min-w-0 items-start gap-3 sm:items-center">
 												{lesson.status === "completed" ? (
 													<RiCheckboxCircleLine
 														className="size-5 text-amber"
@@ -131,8 +131,8 @@ function CourseView() {
 														aria-hidden="true"
 													/>
 												)}
-												<div className="flex flex-col gap-1">
-													<span className="font-medium text-white group-hover:text-amber">
+												<div className="min-w-0 flex-1 flex flex-col gap-1">
+													<span className="break-words font-medium text-white group-hover:text-amber">
 														{lesson.title}
 													</span>
 													<span className="text-sm text-muted-foreground">
@@ -144,7 +144,7 @@ function CourseView() {
 													</span>
 												</div>
 											</div>
-											<Badge variant="outline">Open lesson</Badge>
+											<Badge variant="outline" className="w-fit">Open lesson</Badge>
 										</Link>
 									))}
 								</CardContent>
