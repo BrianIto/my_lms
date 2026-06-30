@@ -152,7 +152,7 @@ function DashboardView() {
 
 					<Card
 						className={cn(
-							"border-white/15 bg-background/85 border-0 border-b border-r",
+							"border-white/15 bg-background/85 border-0 border-b border-r border-l",
 						)}
 					>
 						<CardHeader>
