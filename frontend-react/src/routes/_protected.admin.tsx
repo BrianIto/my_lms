@@ -49,7 +49,7 @@ import {
 } from "#/components/ui/select.tsx";
 import { Separator } from "#/components/ui/separator.tsx";
 import { Textarea } from "#/components/ui/textarea.tsx";
-import { getServerAuthState } from "#/lib/auth-session.ts";
+import { getAuthStateQueryOptions } from "#/lib/auth-session.ts";
 import {
 	type BetaAllowlistEntry,
 	type BetaAllowlistStatus,
@@ -73,8 +73,11 @@ import {
 import { cn } from "#/utils/cn";
 
 export const Route = createFileRoute("/_protected/admin")({
-	beforeLoad: async () => {
-		const auth = await getServerAuthState();
+	beforeLoad: async ({ context }) => {
+		const auth = await context.queryClient.ensureQueryData(
+			getAuthStateQueryOptions(),
+		);
+
 		if (!auth.isAuthenticated) throw redirect({ to: "/" });
 		if (!auth.isAdmin) throw redirect({ to: "/dashboard" });
 	},

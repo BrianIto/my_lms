@@ -9,11 +9,17 @@ import {
 	RiLoader4Line,
 	RiLogoutBoxRLine,
 } from "@remixicon/react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import gsap from "gsap";
 import { AnimatePresence, motion, stagger } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { authClient } from "#/lib/auth-client.ts";
+import {
+	anonymousAuthState,
+	authStateQueryKey,
+	getAuthStateQueryOptions,
+} from "#/lib/auth-session.ts";
 import { cn } from "#/utils/cn";
 import ListItem, {
 	type IslandPage,
@@ -83,20 +89,6 @@ function getDisplayName(user?: {
 	return emailLocalPart || "";
 }
 
-function isAdminRole(role: string | null | undefined) {
-	return (
-		typeof role === "string" &&
-		role
-			.split(",")
-			.map((value) => value.trim().toLowerCase())
-			.includes("admin")
-	);
-}
-
-function getSessionUserRole(user: unknown) {
-	return (user as { role?: string | null } | null)?.role;
-}
-
 gsap.registerPlugin(useGSAP);
 
 const DynamicIsland: React.FC = () => {
@@ -107,21 +99,23 @@ const DynamicIsland: React.FC = () => {
 	const [isSigningOut, setIsSigningOut] = useState(false);
 	const [signOutError, setSignOutError] = useState("");
 	const labelRef = useRef<HTMLSpanElement>(null);
-	const session = authClient.useSession();
+	const authQuery = useQuery(getAuthStateQueryOptions());
+	const queryClient = useQueryClient();
 	const navigate = useNavigate();
 	const location = useLocation();
 	const activePage = getActivePage(location.pathname);
 	const activeRoute = activePage.to;
 	const CurrentIcon = activePage.icon ?? RiHome2Line;
-	const isAuthenticated = Boolean(session.data?.user);
-	const isAdmin = isAdminRole(getSessionUserRole(session.data?.user));
+	const auth = authQuery.data ?? anonymousAuthState;
+	const isAuthenticated = auth.isAuthenticated;
+	const isAdmin = auth.isAdmin;
 	const availablePages = useMemo(
 		() => pages.filter((page) => page.to !== "/admin" || isAdmin),
 		[isAdmin],
 	);
 	const menuItemCount = availablePages.length + (isAuthenticated ? 1 : 0);
 	const logoutIndex = availablePages.length;
-	const displayName = getDisplayName(session.data?.user);
+	const displayName = getDisplayName(auth.user);
 	const saluteText = displayName ? `Hi, ${displayName}!` : "";
 	const displayText = showSalute && saluteText ? saluteText : activePage.name;
 	const prefersReducedMotion = useMemo(
@@ -160,6 +154,7 @@ const DynamicIsland: React.FC = () => {
 				return;
 			}
 
+			queryClient.setQueryData(authStateQueryKey, anonymousAuthState);
 			closeIsland();
 			void navigate({ to: "/", replace: true });
 		} catch (error) {
@@ -169,7 +164,7 @@ const DynamicIsland: React.FC = () => {
 		} finally {
 			setIsSigningOut(false);
 		}
-	}, [closeIsland, isSigningOut, navigate]);
+	}, [closeIsland, isSigningOut, navigate, queryClient]);
 
 	useEffect(() => {
 		function handleKeyDown(event: KeyboardEvent) {
